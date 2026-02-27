@@ -75,7 +75,19 @@ class WordPressClawApp {
     this.showError(false);
 
     try {
+      console.log('Loading data from API...');
       const result = await this.sheetsService.readSheet();
+      console.log('Got data:', result);
+      
+      if (!result.data || result.data.length === 0) {
+        console.log('No data found in sheet');
+        this.articles = [];
+        this.renderTable();
+        this.updateStats();
+        this.showLoading(false);
+        return;
+      }
+      
       this.articles = result.data.map((row, index) => ({
         ...row,
         _originalIndex: index
@@ -89,7 +101,7 @@ class WordPressClawApp {
     } catch (error) {
       console.error('Load error:', error);
       this.showLoading(false);
-      this.showError(true, error.message);
+      this.showError(true, error.message || 'Failed to load spreadsheet');
     }
   }
 
@@ -97,13 +109,17 @@ class WordPressClawApp {
     const tbody = document.getElementById('articlesBody');
     const emptyState = document.getElementById('emptyState');
     
+    console.log('Rendering table with', this.articles.length, 'articles');
+    
     if (this.articles.length === 0) {
       tbody.innerHTML = '';
       emptyState.classList.remove('hidden');
+      document.getElementById('articlesTable').classList.add('hidden');
       return;
     }
 
     emptyState.classList.add('hidden');
+    document.getElementById('articlesTable').classList.remove('hidden');
     
     tbody.innerHTML = this.articles.map((article, index) => {
       const status = article.status || 'PENDING';

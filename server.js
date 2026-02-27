@@ -95,7 +95,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get sheet data
+// Get sheet data - using Google Sheets API via gviz
 app.get('/api/sheet', async (req, res) => {
   try {
     const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
@@ -103,14 +103,31 @@ app.get('/api/sheet', async (req, res) => {
       return res.status(400).json({ error: 'Invalid sheet URL' });
     }
 
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Sheet1`;
-    const response = await axios.get(csvUrl, { timeout: 10000 });
+    // Try the new Google Sheets CSV export format
+    // First, try the export format
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    
+    console.log('Fetching sheet:', exportUrl);
+    
+    const response = await axios.get(exportUrl, { 
+      timeout: 10000,
+      maxRedirects: 5,
+      validateStatus: (status) => status < 400
+    });
     
     const parsed = parseCSV(response.data);
+    console.log(`Parsed ${parsed.data.length} rows from sheet`);
     res.json(parsed);
   } catch (error) {
     console.error('Sheet error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Sheet URL attempted:', CONFIG.SHEET_URL);
+    
+    // Return more detailed error
+    res.status(500).json({ 
+      error: 'Failed to fetch sheet',
+      details: error.message,
+      hint: 'Make sure the sheet is shared with "Anyone with the link can view"'
+    });
   }
 });
 
