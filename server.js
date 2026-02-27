@@ -3,14 +3,63 @@ const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
+const session = require('express-session');
+const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Session middleware (required for OAuth)
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false } // Set to true if using HTTPS
+}));
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Load Google credentials from env vars or file
+function loadGoogleCredentials() {
+  // First try environment variables
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uris: ['https://wordpress-claw.onrender.com/auth/google/callback']
+    };
+  }
+  
+  // Fallback to file
+  try {
+    const credentialsPath = path.join(__dirname, 'google-credentials.json');
+    if (fs.existsSync(credentialsPath)) {
+      const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+      return credentials.web;
+    }
+  } catch (error) {
+    console.error('Error loading Google credentials:', error.message);
+  }
+  
+  return null;
+}
+
+// Initialize OAuth client
+let oauth2Client;
+const googleCredentials = loadGoogleCredentials();
+
+if (googleCredentials) {
+  oauth2Client = new google.auth.OAuth2(
+    googleCredentials.client_id,
+    googleCredentials.client_secret,
+    googleCredentials.redirect_uris[0]
+  );
+  console.log('Google OAuth2 client initialized');
+} else {
+  console.log('Google credentials not found - OAuth will not work');
+}
 
 // Load config from file or env vars
 function loadConfig() {
@@ -19,7 +68,6 @@ function loadConfig() {
     const configPath = path.join(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
       fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      console.log('Loaded config from config.json');
     }
   } catch (error) {
     console.error('Error loading config.json:', error.message);
@@ -39,105 +87,189 @@ function loadConfig() {
   };
 }
 
-// Environment variables - use let so we can update at runtime
 let CONFIG = loadConfig();
-
-// In-memory storage for multiple sheets
 let savedSheets = [];
 
-// Extract spreadsheet ID from URL
-function extractSpreadsheetId(url) {
-  if (!url) return null;
-  
-  // Try standard format first
-  let match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (match) return match[1];
-  
-  // Try pubhtml format
-  match = url.match(/\/d\/e\/([a-zA-Z0-9-_]+)\/pubhtml/);
-  if (match) {
-    return `e/${match[1]}`;
+// ============================================
+// GOOGLE OAUTH ROUTES
+// ============================================
+
+// Step 1: Redirect to Google OAuth
+app.get('/auth/google', (req, res) => {
+  if (!oauth2Client) {
+    return res.status(500).json({ error: 'Google OAuth not configured' });
   }
+
+  const scopes = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive.readonly'
+  ];
+
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: scopes,
+    include_granted_scopes: true
+  });
+
+  res.redirect(authUrl);
+});
+
+// Step 2: Handle OAuth callback
+app.get('/auth/google/callback', async (req, res) => {
+  const code = req.query.code;
   
-  return null;
-}
+  if (!code) {
+    return res.status(400).json({ error: 'No authorization code received' });
+  }
 
-// Get sheet name from URL for display
-function getSheetNameFromUrl(url) {
-  if (!url) return 'Spreadsheet';
-  // Try to extract name from URL or return default
-  return 'Spreadsheet';
-}
-
-// Parse CSV
-function parseCSV(csvText) {
-  const lines = csvText.split('\n');
-  if (lines.length === 0) return { headers: [], data: [] };
-
-  const parseLine = (line) => {
-    const values = [];
-    let current = '';
-    let inQuotes = false;
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
     
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (inQuotes) {
-        if (char === '"') {
-          if (nextChar === '"') {
-            current += '"';
-            i++;
-          } else {
-            inQuotes = false;
-          }
-        } else {
-          current += char;
-        }
-      } else {
-        if (char === '"') {
-          inQuotes = true;
-        } else if (char === ',') {
-          values.push(current.trim());
-          current = '';
-        } else {
-          current += char;
-        }
-      }
-    }
-    values.push(current.trim());
-    return values;
-  };
+    // Store tokens in session
+    req.session.googleTokens = tokens;
+    
+    console.log('Google OAuth successful, tokens stored');
+    
+    // Redirect back to app
+    res.redirect('/?connected=true');
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    res.redirect('/?error=oauth_failed');
+  }
+});
 
-  const headers = parseLine(lines[0]);
-  const data = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const values = parseLine(lines[i]);
-    const row = { _rowIndex: i + 1 };
-    headers.forEach((header, index) => {
-      const key = header.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      row[key] = values[index] || '';
-    });
-    data.push(row);
+// Check if user is authenticated with Google
+app.get('/api/google/auth-status', (req, res) => {
+  const isAuthenticated = !!(req.session.googleTokens && req.session.googleTokens.access_token);
+  res.json({ 
+    authenticated: isAuthenticated,
+    hasTokens: !!req.session.googleTokens
+  });
+});
+
+// Disconnect Google
+app.post('/api/google/disconnect', (req, res) => {
+  req.session.googleTokens = null;
+  res.json({ success: true, message: 'Google account disconnected' });
+});
+
+// ============================================
+// GOOGLE SHEETS API ROUTES (Using OAuth)
+// ============================================
+
+// List user's spreadsheets
+app.get('/api/google/spreadsheets', async (req, res) => {
+  if (!req.session.googleTokens) {
+    return res.status(401).json({ error: 'Not authenticated with Google' });
   }
 
-  return { headers, data };
-}
+  try {
+    oauth2Client.setCredentials(req.session.googleTokens);
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    
+    const response = await drive.files.list({
+      q: "mimeType='application/vnd.google-apps.spreadsheet'",
+      fields: 'files(id, name, modifiedTime)',
+      orderBy: 'modifiedTime desc'
+    });
 
-// Routes
+    res.json({
+      success: true,
+      spreadsheets: response.data.files
+    });
+  } catch (error) {
+    console.error('Error listing spreadsheets:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Read sheet data using Google Sheets API
+app.get('/api/google/sheet/:spreadsheetId', async (req, res) => {
+  if (!req.session.googleTokens) {
+    return res.status(401).json({ error: 'Not authenticated with Google' });
+  }
+
+  const { spreadsheetId } = req.params;
+  const range = req.query.range || 'Sheet1';
+
+  try {
+    oauth2Client.setCredentials(req.session.googleTokens);
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ headers: [], data: [] });
+    }
+
+    // Parse headers and data
+    const headers = rows[0];
+    const data = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      const row = { _rowIndex: i + 1 };
+      headers.forEach((header, index) => {
+        const key = header.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        row[key] = rows[i][index] || '';
+      });
+      data.push(row);
+    }
+
+    res.json({ headers, data });
+  } catch (error) {
+    console.error('Error reading sheet:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update cell in sheet
+app.post('/api/google/sheet/:spreadsheetId/update', async (req, res) => {
+  if (!req.session.googleTokens) {
+    return res.status(401).json({ error: 'Not authenticated with Google' });
+  }
+
+  const { spreadsheetId } = req.params;
+  const { range, values } = req.body;
+
+  try {
+    oauth2Client.setCredentials(req.session.googleTokens);
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'RAW',
+      resource: { values }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating sheet:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// EXISTING API ROUTES (Legacy CSV method)
+// ============================================
+
+// ... (keep existing routes)
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    sheetConfigured: !!CONFIG.SHEET_URL
+    googleAuth: !!oauth2Client,
+    userAuthenticated: !!(req.session.googleTokens && req.session.googleTokens.access_token)
   });
 });
 
-// Get config (safe values for frontend)
+// Get config
 app.get('/api/config', (req, res) => {
   res.json({
     SHEET_URL: CONFIG.SHEET_URL,
@@ -147,306 +279,9 @@ app.get('/api/config', (req, res) => {
     GITHUB_BRANCH: CONFIG.GITHUB_BRANCH,
     WP_URL: CONFIG.WP_URL,
     WP_USERNAME: CONFIG.WP_USERNAME,
-    sheetConfigured: !!CONFIG.SHEET_URL
+    sheetConfigured: !!CONFIG.SHEET_URL,
+    googleAuthAvailable: !!oauth2Client
   });
-});
-
-// Get current sheet URL
-app.get('/api/sheet-url', (req, res) => {
-  res.json({ 
-    url: CONFIG.SHEET_URL,
-    name: getSheetNameFromUrl(CONFIG.SHEET_URL),
-    configured: !!CONFIG.SHEET_URL
-  });
-});
-
-// Update sheet URL (for connecting new sheet)
-app.post('/api/sheet-url', (req, res) => {
-  const { url } = req.body;
-  if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
-  }
-  
-  CONFIG.SHEET_URL = url;
-  console.log('Sheet URL updated:', url);
-  
-  res.json({ 
-    success: true, 
-    url,
-    name: getSheetNameFromUrl(url),
-    configured: true
-  });
-});
-
-// Disconnect sheet
-app.delete('/api/sheet-url', (req, res) => {
-  CONFIG.SHEET_URL = '';
-  console.log('Sheet URL disconnected');
-  res.json({ success: true, message: 'Sheet disconnected' });
-});
-
-// Get saved sheets list
-app.get('/api/sheets', (req, res) => {
-  res.json(savedSheets);
-});
-
-// Add a new sheet to the list
-app.post('/api/sheets', (req, res) => {
-  const { url, name } = req.body;
-  if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
-  }
-  
-  const sheet = {
-    id: Date.now().toString(),
-    url,
-    name: name || getSheetNameFromUrl(url),
-    addedAt: new Date().toISOString()
-  };
-  
-  savedSheets.push(sheet);
-  
-  // Also set as current sheet
-  CONFIG.SHEET_URL = url;
-  
-  res.json({ success: true, sheet });
-});
-
-// Delete a sheet from the list
-app.delete('/api/sheets/:id', (req, res) => {
-  const { id } = req.params;
-  const sheet = savedSheets.find(s => s.id === id);
-  savedSheets = savedSheets.filter(s => s.id !== id);
-  
-  // If we deleted the current sheet, clear it
-  if (sheet && sheet.url === CONFIG.SHEET_URL) {
-    CONFIG.SHEET_URL = '';
-  }
-  
-  res.json({ success: true });
-});
-
-// Switch to a saved sheet
-app.post('/api/sheets/:id/switch', (req, res) => {
-  const { id } = req.params;
-  const sheet = savedSheets.find(s => s.id === id);
-  
-  if (!sheet) {
-    return res.status(404).json({ error: 'Sheet not found' });
-  }
-  
-  CONFIG.SHEET_URL = sheet.url;
-  res.json({ success: true, sheet });
-});
-
-// Get sheet data
-app.get('/api/sheet', async (req, res) => {
-  try {
-    console.log('Current SHEET_URL:', CONFIG.SHEET_URL);
-    
-    if (!CONFIG.SHEET_URL) {
-      return res.status(400).json({ 
-        error: 'No sheet URL configured',
-        hint: 'Click "Switch Sheet" to add a spreadsheet'
-      });
-    }
-
-    const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
-    if (!spreadsheetId) {
-      return res.status(400).json({ 
-        error: 'Invalid sheet URL format',
-        hint: 'Use a Google Sheets "Publish to web" URL'
-      });
-    }
-
-    let exportUrl;
-    
-    // Check if it's a published document ID (starts with e/)
-    if (spreadsheetId.startsWith('e/')) {
-      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv`;
-    } else {
-      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
-    }
-    
-    console.log('Fetching sheet:', exportUrl);
-    
-    const response = await axios.get(exportUrl, { 
-      timeout: 10000,
-      maxRedirects: 5,
-      validateStatus: (status) => status < 400
-    });
-    
-    const parsed = parseCSV(response.data);
-    console.log(`Parsed ${parsed.data.length} rows from sheet`);
-    res.json(parsed);
-  } catch (error) {
-    console.error('Sheet error:', error.message);
-    
-    res.status(500).json({ 
-      error: 'Failed to fetch sheet',
-      details: error.message,
-      hint: 'Make sure the sheet is published to web (File > Share > Publish to web)'
-    });
-  }
-});
-
-// Generate content
-app.post('/api/generate-content', async (req, res) => {
-  try {
-    const { topic, wordCount = 1500, tone = 'professional' } = req.body;
-    
-    const content = `# ${topic}: A Comprehensive Guide
-
-## Introduction
-
-This is a comprehensive guide about ${topic}.
-
-## Key Points
-
-- Point 1 about ${topic}
-- Point 2 about ${topic}
-- Point 3 about ${topic}
-
-## Conclusion
-
-In conclusion, ${topic} is important.
-
-## FAQ
-
-**Q: What is ${topic}?**
-A: ${topic} refers to...
-
-**Q: Why is it important?**
-A: Understanding ${topic} helps...`;
-
-    res.json({
-      success: true,
-      title: `${topic}: A Comprehensive Guide`,
-      content,
-      excerpt: `Learn everything about ${topic} in this guide.`,
-      tags: topic.toLowerCase().replace(/\s+/g, ', ')
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Generate image
-app.post('/api/generate-image', async (req, res) => {
-  try {
-    const { prompt } = req.body;
-    
-    if (!CONFIG.LAOZHANG_API_KEY) {
-      return res.status(400).json({ error: 'Laozhang API key not configured' });
-    }
-    
-    const response = await axios.post(
-      `${CONFIG.LAOZHANG_BASE_URL}/images/generations`,
-      {
-        model: CONFIG.LAOZHANG_MODEL,
-        prompt: prompt,
-        n: 1,
-        size: '1200x630',
-        quality: 'high'
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${CONFIG.LAOZHANG_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 120000,
-        responseType: 'arraybuffer'
-      }
-    );
-
-    const base64 = Buffer.from(response.data).toString('base64');
-    
-    res.json({
-      success: true,
-      imageBase64: base64,
-      mimeType: 'image/png'
-    });
-  } catch (error) {
-    console.error('Image error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Upload image to GitHub
-app.post('/api/upload-image', async (req, res) => {
-  try {
-    const { imageBase64, filename } = req.body;
-    
-    if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) {
-      return res.status(400).json({ error: 'GitHub not configured' });
-    }
-    
-    const timestamp = Date.now();
-    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '-');
-    const filePath = `images/${timestamp}-${safeFilename}`;
-
-    const response = await axios.put(
-      `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${filePath}`,
-      {
-        message: `Upload image: ${safeFilename}`,
-        content: imageBase64,
-        branch: CONFIG.GITHUB_BRANCH
-      },
-      {
-        headers: {
-          'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      }
-    );
-
-    res.json({
-      success: true,
-      url: response.data.content.download_url,
-      htmlUrl: response.data.content.html_url
-    });
-  } catch (error) {
-    console.error('GitHub error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Publish to WordPress
-app.post('/api/publish', async (req, res) => {
-  try {
-    const { title, content, excerpt, tags, featuredImageUrl } = req.body;
-
-    if (!CONFIG.WP_URL || !CONFIG.WP_USERNAME || !CONFIG.WP_APP_PASSWORD) {
-      return res.status(400).json({ error: 'WordPress not configured' });
-    }
-
-    const postData = {
-      title,
-      content,
-      excerpt: excerpt || '',
-      status: 'publish'
-    };
-
-    const response = await axios.post(
-      `${CONFIG.WP_URL}/wp-json/wp/v2/posts`,
-      postData,
-      {
-        auth: {
-          username: CONFIG.WP_USERNAME,
-          password: CONFIG.WP_APP_PASSWORD
-        }
-      }
-    );
-
-    res.json({
-      success: true,
-      postId: response.data.id,
-      url: response.data.link
-    });
-  } catch (error) {
-    console.error('WP error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // Serve frontend
@@ -456,5 +291,5 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('SHEET_URL configured:', !!CONFIG.SHEET_URL);
+  console.log('Google OAuth:', oauth2Client ? 'Configured' : 'Not configured');
 });
