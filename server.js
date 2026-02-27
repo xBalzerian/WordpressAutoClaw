@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,19 +12,35 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Load config from file or env vars
+function loadConfig() {
+  let fileConfig = {};
+  try {
+    const configPath = path.join(__dirname, 'config.json');
+    if (fs.existsSync(configPath)) {
+      fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      console.log('Loaded config from config.json');
+    }
+  } catch (error) {
+    console.error('Error loading config.json:', error.message);
+  }
+
+  return {
+    SHEET_URL: process.env.SHEET_URL || fileConfig.SHEET_URL || '',
+    LAOZHANG_API_KEY: process.env.LAOZHANG_API_KEY || fileConfig.LAOZHANG_API_KEY || '',
+    LAOZHANG_BASE_URL: process.env.LAOZHANG_BASE_URL || 'https://api.laozhang.ai/v1',
+    LAOZHANG_MODEL: process.env.LAOZHANG_MODEL || 'gemini-3-pro-image-preview',
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN || fileConfig.GITHUB_TOKEN || '',
+    GITHUB_REPO: process.env.GITHUB_REPO || fileConfig.GITHUB_REPO || '',
+    GITHUB_BRANCH: process.env.GITHUB_BRANCH || 'main',
+    WP_URL: process.env.WP_URL || '',
+    WP_USERNAME: process.env.WP_USERNAME || '',
+    WP_APP_PASSWORD: process.env.WP_APP_PASSWORD || ''
+  };
+}
+
 // Environment variables - use let so we can update at runtime
-let CONFIG = {
-  SHEET_URL: process.env.SHEET_URL || '',
-  LAOZHANG_API_KEY: process.env.LAOZHANG_API_KEY || '',
-  LAOZHANG_BASE_URL: process.env.LAOZHANG_BASE_URL || 'https://api.laozhang.ai/v1',
-  LAOZHANG_MODEL: process.env.LAOZHANG_MODEL || 'gemini-3-pro-image-preview',
-  GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
-  GITHUB_REPO: process.env.GITHUB_REPO || '',
-  GITHUB_BRANCH: process.env.GITHUB_BRANCH || 'main',
-  WP_URL: process.env.WP_URL || '',
-  WP_USERNAME: process.env.WP_USERNAME || '',
-  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD || ''
-};
+let CONFIG = loadConfig();
 
 // In-memory storage for multiple sheets
 let savedSheets = [];
