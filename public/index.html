@@ -21,9 +21,9 @@
     <div class="sheet-info">
       <div class="sheet-selector">
         <span class="sheet-name" id="currentSheetName">📊 Loading...</span>
-        <button id="connectSheetBtn" class="btn btn-small btn-primary">Connect Sheet</button>
-        <button id="switchSheetBtn" class="btn btn-small btn-secondary hidden">Switch Sheet</button>
-        <button id="disconnectSheetBtn" class="btn btn-small btn-danger hidden">Disconnect</button>
+        <button id="connectGoogleBtn" class="btn btn-small btn-primary">🔗 Connect Google</button>
+        <button id="selectSheetBtn" class="btn btn-small btn-secondary hidden">📋 Select Sheet</button>
+        <button id="disconnectGoogleBtn" class="btn btn-small btn-danger hidden">Disconnect</button>
       </div>
       <span id="lastUpdated" class="last-updated">Never updated</span>
     </div>
@@ -196,6 +196,29 @@
             <!-- Sheets will be populated here -->
             <p class="text-muted">No sheets saved yet</p>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Sheets Selector Modal -->
+  <div id="googleSheetsModal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Select Google Spreadsheet</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="sheetsLoading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading your spreadsheets...</p>
+        </div>
+        <div id="sheetsList" class="saved-sheets-list hidden">
+          <!-- Sheets will be populated here -->
+        </div>
+        <div id="sheetsError" class="error-state hidden">
+          <p>Failed to load spreadsheets</p>
+          <button id="retrySheetsBtn" class="btn btn-primary">Retry</button>
         </div>
       </div>
     </div>
