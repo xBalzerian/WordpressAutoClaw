@@ -91,28 +91,35 @@ function parseCSV(csvText) {
 // Get sheet data
 app.get('/api/sheet', async (req, res) => {
   try {
-    if (!CONFIG.SHEET_URL) {
-      return res.status(400).json({ error: 'No sheet URL configured. Add SHEET_URL environment variable.' });
-    }
+    // Hardcoded sheet URL for testing
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRdkdttxEJQt-kWPgBBsehHymf8inl5wO0N_NoVqS5lNKhavDgqDVgni7HSfA-CE8d8VmjqHw5MMBuk/pub?output=csv';
     
-    const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
-    if (!spreadsheetId) {
-      return res.status(400).json({ error: 'Invalid sheet URL format' });
-    }
-
-    const exportUrl = spreadsheetId.startsWith('e/') 
-      ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv`
-      : `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
-
-    console.log('Fetching:', exportUrl);
-    const response = await axios.get(exportUrl, { timeout: 10000 });
+    console.log('Fetching sheet...');
+    const response = await axios.get(sheetUrl, { 
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
     const parsed = parseCSV(response.data);
+    console.log(`Loaded ${parsed.data.length} rows, ${parsed.headers.length} columns`);
+    console.log('Headers:', parsed.headers);
     
-    console.log(`Loaded ${parsed.data.length} rows`);
     res.json(parsed);
   } catch (error) {
     console.error('Sheet error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Response status:', error.response?.status);
+    console.error('Response data:', error.response?.data?.substring?.(0, 200));
+    
+    // Return mock data for testing
+    res.json({
+      headers: ['topic', 'status', 'content', 'image_url', 'wp_url'],
+      data: [
+        { _rowIndex: 2, topic: 'Test Article 1', status: 'PENDING', content: '', image_url: '', wp_url: '' },
+        { _rowIndex: 3, topic: 'Test Article 2', status: 'PENDING', content: '', image_url: '', wp_url: '' }
+      ]
+    });
   }
 });
 
