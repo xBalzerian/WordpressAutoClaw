@@ -50,20 +50,29 @@ class WordPressClawApp {
       this.openSettingsModal();
     });
 
-    // Switch sheet button
-    document.getElementById('switchSheetBtn').addEventListener('click', () => {
-      this.openSheetManagerModal();
-    });
+    // Connect Google button
+    const connectGoogleBtn = document.getElementById('connectGoogleBtn');
+    if (connectGoogleBtn) {
+      connectGoogleBtn.addEventListener('click', () => {
+        window.location.href = '/auth/google';
+      });
+    }
 
-    // Connect sheet button
-    document.getElementById('connectSheetBtn').addEventListener('click', () => {
-      this.openSheetManagerModal();
-    });
+    // Select sheet button
+    const selectSheetBtn = document.getElementById('selectSheetBtn');
+    if (selectSheetBtn) {
+      selectSheetBtn.addEventListener('click', () => {
+        this.openGoogleSheetsModal();
+      });
+    }
 
-    // Disconnect sheet button
-    document.getElementById('disconnectSheetBtn').addEventListener('click', () => {
-      this.disconnectSheet();
-    });
+    // Disconnect Google button
+    const disconnectGoogleBtn = document.getElementById('disconnectGoogleBtn');
+    if (disconnectGoogleBtn) {
+      disconnectGoogleBtn.addEventListener('click', () => {
+        this.disconnectGoogle();
+      });
+    }
 
     // Process all button
     document.getElementById('processAllBtn').addEventListener('click', () => {
