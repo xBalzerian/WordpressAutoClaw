@@ -10,18 +10,30 @@
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
     .header h1 { font-size: 1.8rem; color: #E53935; }
-    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .btn-primary { background: #E53935; color: white; }
     .btn-secondary { background: white; color: #333; border: 1px solid #ddd; }
     .btn-success { background: #4CAF50; color: white; }
+    .btn-warning { background: #FF9800; color: white; }
     .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .settings-panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .settings-panel h3 { margin-bottom: 15px; color: #333; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: #555; }
+    .form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    
     .sheet-info { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .status-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
     .status-item { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .status-count { display: block; font-size: 2rem; font-weight: bold; color: #E53935; }
     .status-label { color: #666; font-size: 0.9rem; }
+    
     .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1000px; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; }
     th { background: #f5f5f5; font-weight: 600; color: #666; white-space: nowrap; }
     tr:hover { background: rgba(229, 57, 53, 0.05); }
@@ -29,28 +41,77 @@
     .status-pending { background: #FFF3E0; color: #E65100; }
     .status-progress { background: #E3F2FD; color: #1565C0; }
     .status-complete { background: #E8F5E9; color: #2E7D32; }
+    
+    .actions { display: flex; gap: 5px; flex-wrap: nowrap; }
     .loading { text-align: center; padding: 60px; }
     .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #E53935; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error { text-align: center; padding: 40px; color: #C62828; }
     .hidden { display: none !important; }
+    
     .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
-    .toast { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; }
+    .toast { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; animation: slideIn 0.3s ease; }
     .toast-success { background: #4CAF50; }
     .toast-error { background: #f44336; }
-    .col-topic { min-width: 250px; max-width: 400px; }
-    .col-status { min-width: 120px; }
-    .col-action { min-width: 100px; white-space: nowrap; }
-    td { vertical-align: middle; }
-    .truncate { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toast-info { background: #2196F3; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    
+    .progress-bar { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden; margin-top: 10px; }
+    .progress-fill { height: 100%; background: #E53935; transition: width 0.3s ease; }
+    
+    .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    
+    .connected { color: #4CAF50; }
+    .disconnected { color: #f44336; }
   </style>
 </head>
 <body>
   <div class="container">
     <header class="header">
       <h1>🦞 WordPress Auto Claw</h1>
-      <button id="refreshBtn" class="btn btn-secondary">↻ Refresh</button>
+      <div>
+        <span id="wpStatus" class="disconnected">● WP Not Connected</span>
+        <button id="refreshBtn" class="btn btn-secondary" style="margin-left: 15px;">↻ Refresh</button>
+      </div>
     </header>
+
+    <!-- WordPress Settings -->
+    <div class="settings-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3>🔗 WordPress Connection</h3>
+        <button id="toggleSettings" class="btn btn-small btn-secondary">Hide</button>
+      </div>
+      
+      <div id="settingsForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label>WordPress URL</label>
+            <input type="text" id="wpUrl" placeholder="https://tranplastic.com" />
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="wpUsername" placeholder="admin" />
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Application Password</label>
+            <input type="password" id="wpPassword" placeholder="xxxx xxxx xxxx xxxx xxxx" />
+          </div>
+          <div class="form-group">
+            <label>Author ID</label>
+            <input type="text" id="wpAuthor" placeholder="1" value="1" />
+          </div>
+        </div>
+        
+        <button id="saveWpSettings" class="btn btn-primary">Save & Test Connection</button>
+        <button id="testWpConnection" class="btn btn-secondary" style="margin-left: 10px;">Test Only</button>
+      </div>
+    </div>
 
     <div class="sheet-info">
       <span id="sheetName">📊 Loading...</span>
@@ -94,6 +155,22 @@
     </div>
   </div>
 
+  <!-- Processing Modal -->
+  <div id="processModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Processing...</h3>
+        <button class="modal-close" onclick="app.closeModal()">&times;</button>
+      </div>
+      <div id="modalBody">
+        <p id="modalStatus">Starting...</p>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toastContainer" class="toast-container"></div>
 
   <script>
@@ -102,13 +179,109 @@
         this.data = [];
         this.headers = [];
         this.columns = {};
+        this.wpConnected = false;
+        this.processing = false;
         this.init();
       }
 
       init() {
+        this.bindEvents();
+        this.loadWpConfig();
+        this.loadData();
+      }
+
+      bindEvents() {
         document.getElementById('refreshBtn').addEventListener('click', () => this.loadData());
         document.getElementById('retryBtn').addEventListener('click', () => this.loadData());
-        this.loadData();
+        document.getElementById('saveWpSettings').addEventListener('click', () => this.saveWpSettings());
+        document.getElementById('testWpConnection').addEventListener('click', () => this.testWpConnection());
+        document.getElementById('toggleSettings').addEventListener('click', (e) => {
+          const form = document.getElementById('settingsForm');
+          form.classList.toggle('hidden');
+          e.target.textContent = form.classList.contains('hidden') ? 'Show' : 'Hide';
+        });
+      }
+
+      async loadWpConfig() {
+        try {
+          const response = await fetch('/api/wp-config');
+          const config = await response.json();
+          
+          if (config.url) document.getElementById('wpUrl').value = config.url;
+          if (config.author) document.getElementById('wpAuthor').value = config.author;
+          
+          this.wpConnected = config.configured;
+          this.updateWpStatus();
+        } catch (error) {
+          console.error('Failed to load WP config:', error);
+        }
+      }
+
+      async saveWpSettings() {
+        const url = document.getElementById('wpUrl').value.trim();
+        const username = document.getElementById('wpUsername').value.trim();
+        const password = document.getElementById('wpPassword').value.trim();
+        const author = document.getElementById('wpAuthor').value.trim() || '1';
+
+        if (!url || !username || !password) {
+          this.showToast('Please fill in all WordPress fields', 'error');
+          return;
+        }
+
+        try {
+          // Save config
+          await fetch('/api/wp-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, username, password, author })
+          });
+
+          // Test connection
+          await this.testWpConnection();
+        } catch (error) {
+          this.showToast('Failed to save settings', 'error');
+        }
+      }
+
+      async testWpConnection() {
+        const url = document.getElementById('wpUrl').value.trim();
+        const username = document.getElementById('wpUsername').value.trim();
+        const password = document.getElementById('wpPassword').value.trim();
+
+        try {
+          const response = await fetch('/api/wp-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, username, password })
+          });
+
+          const result = await response.json();
+          
+          if (result.success) {
+            this.wpConnected = true;
+            this.showToast(`WordPress connected! Found ${result.users} users.`, 'success');
+          } else {
+            this.wpConnected = false;
+            this.showToast(`Connection failed: ${result.error}`, 'error');
+          }
+          
+          this.updateWpStatus();
+        } catch (error) {
+          this.wpConnected = false;
+          this.showToast('Connection test failed', 'error');
+          this.updateWpStatus();
+        }
+      }
+
+      updateWpStatus() {
+        const statusEl = document.getElementById('wpStatus');
+        if (this.wpConnected) {
+          statusEl.textContent = '● WP Connected';
+          statusEl.className = 'connected';
+        } else {
+          statusEl.textContent = '● WP Not Connected';
+          statusEl.className = 'disconnected';
+        }
       }
 
       async loadData() {
@@ -123,8 +296,6 @@
           this.headers = result.headers;
           this.data = result.data;
           this.columns = result.columns;
-          
-          console.log('Columns detected:', this.columns);
           
           this.renderTable();
           this.updateStats();
@@ -141,17 +312,17 @@
         const thead = document.getElementById('tableHead');
         const tbody = document.getElementById('tableBody');
         
-        // Render headers
+        // Render headers with actions
         let headerHTML = '<tr>';
         this.headers.forEach(header => {
           headerHTML += `<th>${this.escapeHtml(header)}</th>`;
         });
-        headerHTML += '</tr>';
+        headerHTML += '<th>ClawBot Actions</th></tr>';
         thead.innerHTML = headerHTML;
 
         // Render data rows
         if (this.data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="${this.headers.length}" style="text-align:center;padding:40px;">No data found</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="${this.headers.length + 1}" style="text-align:center;padding:40px;">No data found</td></tr>`;
           return;
         }
 
@@ -162,21 +333,28 @@
             const value = row[header] || '';
             const lowerHeader = header.toLowerCase();
             
-            // Special rendering for certain columns
             if (lowerHeader.includes('status')) {
-              rowHTML += `<td class="col-status">${this.renderStatus(value)}</td>`;
+              rowHTML += `<td>${this.renderStatus(value)}</td>`;
             } else if (lowerHeader.includes('url') || lowerHeader.includes('link')) {
               if (value && value.startsWith('http')) {
-                rowHTML += `<td><a href="${value}" target="_blank" title="${value}">🔗 Link</a></td>`;
+                rowHTML += `<td><a href="${value}" target="_blank">🔗 Link</a></td>`;
               } else {
                 rowHTML += `<td class="truncate" title="${this.escapeHtml(value)}">${this.escapeHtml(value)}</td>`;
               }
-            } else if (lowerHeader.includes('keyword') || lowerHeader.includes('topic') || lowerHeader.includes('title')) {
-              rowHTML += `<td class="col-topic"><strong>${this.escapeHtml(value)}</strong></td>`;
             } else {
               rowHTML += `<td class="truncate" title="${this.escapeHtml(value)}">${this.escapeHtml(value)}</td>`;
             }
           });
+          
+          // Action buttons
+          const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+          const status = (row[this.columns.status] || '').toLowerCase();
+          
+          rowHTML += `<td class="actions">
+            <button class="btn btn-primary btn-small" onclick="app.processRow(${index})" ${this.processing ? 'disabled' : ''}>🚀 Auto</button>
+            <button class="btn btn-secondary btn-small" onclick="app.generateContent(${index})" ${this.processing ? 'disabled' : ''}>✍️ Content</button>
+            <button class="btn btn-warning btn-small" onclick="app.generateImages(${index})" ${this.processing ? 'disabled' : ''}>🎨 Images</button>
+          </td>`;
           
           rowHTML += '</tr>';
           return rowHTML;
@@ -186,12 +364,110 @@
       renderStatus(status) {
         const value = (status || '').toLowerCase();
         if (value.includes('complete') || value.includes('done') || value.includes('published')) {
-          return '<span class="status-badge status-complete">✅ Completed</span>';
-        } else if (value.includes('progress') || value.includes('pending') || value.includes('in')) {
+          return '<span class="status-badge status-complete">✅ Complete</span>';
+        } else if (value.includes('progress') || value.includes('pending')) {
           return '<span class="status-badge status-progress">🔄 In Progress</span>';
         } else {
           return '<span class="status-badge status-pending">⏳ Pending</span>';
         }
+      }
+
+      async processRow(index) {
+        if (this.processing) return;
+        this.processing = true;
+        
+        const row = this.data[index];
+        const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+        
+        this.showModal(`Processing: ${keyword}`);
+        this.updateProgress(10, 'Generating content...');
+        
+        try {
+          // Step 1: Generate content
+          const contentRes = await fetch('/api/generate-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              keyword: keyword,
+              serviceUrl: row[this.columns.serviceUrl] || ''
+            })
+          });
+          
+          const contentData = await contentRes.json();
+          this.updateProgress(30, 'Content generated! Generating images...');
+          
+          // Step 2: Generate and upload images
+          this.updateProgress(50, 'Generating feature image...');
+          // Image generation would go here
+          
+          this.updateProgress(70, 'Publishing to WordPress...');
+          
+          // Step 3: Publish to WordPress
+          if (this.wpConnected) {
+            const publishRes = await fetch('/api/publish', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: contentData.title,
+                content: contentData.content,
+                excerpt: contentData.excerpt,
+                metaTitle: contentData.metaTitle,
+                metaDescription: contentData.metaDescription,
+                focusKeyword: contentData.focusKeyword
+              })
+            });
+            
+            const publishData = await publishRes.json();
+            
+            if (publishData.success) {
+              this.updateProgress(100, 'Published successfully!');
+              this.showToast(`Published: ${publishData.url}`, 'success');
+            }
+          } else {
+            this.updateProgress(100, 'Content ready (WP not connected)');
+          }
+          
+          this.closeModal();
+          this.loadData(); // Refresh
+        } catch (error) {
+          this.updateProgress(0, 'Error: ' + error.message);
+          this.showToast('Processing failed: ' + error.message, 'error');
+          this.closeModal();
+        }
+        
+        this.processing = false;
+      }
+
+      async generateContent(index) {
+        const row = this.data[index];
+        const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+        
+        this.showToast(`Generating content for: ${keyword}`, 'info');
+        
+        try {
+          const response = await fetch('/api/generate-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              keyword: keyword,
+              serviceUrl: row[this.columns.serviceUrl] || ''
+            })
+          });
+          
+          const data = await response.json();
+          this.showToast('Content generated! Ready to publish.', 'success');
+          console.log('Generated content:', data);
+        } catch (error) {
+          this.showToast('Failed to generate content', 'error');
+        }
+      }
+
+      async generateImages(index) {
+        const row = this.data[index];
+        const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+        
+        this.showToast(`Generating images for: ${keyword}`, 'info');
+        // Image generation implementation
       }
 
       updateStats() {
@@ -206,7 +482,7 @@
             const status = (row[statusCol] || '').toLowerCase();
             if (status.includes('complete') || status.includes('done') || status.includes('published')) {
               completed++;
-            } else if (status.includes('progress') || status.includes('in')) {
+            } else if (status.includes('progress')) {
               inProgress++;
             } else {
               pending++;
@@ -234,7 +510,32 @@
 
       updateTime() {
         document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
-        document.getElementById('sheetName').textContent = '📊 ' + (this.headers[0] || 'Spreadsheet');
+        document.getElementById('sheetName').textContent = '📊 Spreadsheet';
+      }
+
+      showModal(title) {
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalStatus').textContent = 'Starting...';
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('processModal').classList.remove('hidden');
+      }
+
+      closeModal() {
+        document.getElementById('processModal').classList.add('hidden');
+      }
+
+      updateProgress(percent, message) {
+        document.getElementById('progressFill').style.width = percent + '%';
+        document.getElementById('modalStatus').textContent = message;
+      }
+
+      showToast(message, type) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
       }
 
       escapeHtml(text) {
