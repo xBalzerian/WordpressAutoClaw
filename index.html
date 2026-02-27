@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WordPress Auto Claw</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>🦞 WordPress Auto Claw</h1>
+      <div class="header-actions">
+        <button id="refreshBtn" class="btn btn-secondary">↻ Refresh</button>
+        <button id="settingsBtn" class="btn btn-icon">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Sheet Info -->
+    <div class="sheet-info">
+      <span class="sheet-name">📊 Tranplastic.com</span>
+      <span id="lastUpdated" class="last-updated">Never updated</span>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-count" id="pendingCount">0</span>
+        <span class="status-label">Pending</span>
+      </div>
+      <div class="status-item">
+        <span class="status-count" id="contentCount">0</span>
+        <span class="status-label">Need Image</span>
+      </div>
+      <div class="status-item">
+        <span class="status-count" id="imageCount">0</span>
+        <span class="status-label">Ready to Publish</span>
+      </div>
+      <div class="status-item">
+        <span class="status-count" id="publishedCount">0</span>
+        <span class="status-label">Published</span>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-state hidden">
+      <div class="spinner"></div>
+      <p>Loading spreadsheet...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-state hidden">
+      <p id="errorMessage">Failed to load spreadsheet</p>
+      <button id="retryBtn" class="btn btn-primary">Retry</button>
+    </div>
+
+    <!-- Articles Table -->
+    <div class="table-container">
+      <table id="articlesTable" class="articles-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Topic</th>
+            <th>Content</th>
+            <th>Image</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="articlesBody">
+          <!-- Rows will be populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state hidden">
+      <p>No topics found in spreadsheet.</p>
+      <p>Add topics to your Google Sheet to get started.</p>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="bulk-actions">
+      <button id="processAllBtn" class="btn btn-primary">Process All Pending</button>
+    </div>
+  </div>
+
+  <!-- Content Modal -->
+  <div id="contentModal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Edit Content</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="contentTitle" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Content</label>
+          <textarea id="contentBody" class="form-textarea" rows="20"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveContentBtn" class="btn btn-primary">Save to Sheet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Modal -->
+  <div id="imageModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Generate Image</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Image Prompt</label>
+          <textarea id="imagePrompt" class="form-textarea" rows="4"></textarea>
+          <small>Describe the image you want to generate</small>
+        </div>
+        <div id="imagePreview" class="image-preview hidden">
+          <img id="generatedImage" src="" alt="Generated">
+        </div>
+        <div id="imageLoading" class="image-loading hidden">
+          <div class="spinner"></div>
+          <p>Generating image... (30-60 seconds)</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="generateImageBtn" class="btn btn-primary">Generate</button>
+        <button id="saveImageBtn" class="btn btn-success hidden">Use This Image</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>WordPress</h3>
+          <div class="form-group">
+            <label>WordPress URL</label>
+            <input type="text" id="wpUrl" class="form-input" placeholder="https://yoursite.com">
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="wpUsername" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>App Password</label>
+            <input type="password" id="wpPassword" class="form-input">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/images.js"></script>
+  <script src="js/wordpress.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
