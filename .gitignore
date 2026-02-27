@@ -1,6 +1,10 @@
 # Ignore config files in root only, not in public
 /config.js
 
+# Ignore sensitive files
+google-credentials.json
+config.json
+
 # Ignore node_modules
 node_modules/
 

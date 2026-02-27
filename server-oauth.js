@@ -21,25 +21,44 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Load Google credentials
-let oauth2Client;
-try {
-  const credentialsPath = path.join(__dirname, 'google-credentials.json');
-  if (fs.existsSync(credentialsPath)) {
-    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
-    const { client_id, client_secret, redirect_uris } = credentials.web;
-    
-    oauth2Client = new google.auth.OAuth2(
-      client_id,
-      client_secret,
-      redirect_uris[0]
-    );
-    console.log('Google OAuth2 client initialized');
-  } else {
-    console.log('google-credentials.json not found - OAuth will not work');
+// Load Google credentials from env vars or file
+function loadGoogleCredentials() {
+  // First try environment variables
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    return {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uris: ['https://wordpress-claw.onrender.com/auth/google/callback']
+    };
   }
-} catch (error) {
-  console.error('Error loading Google credentials:', error.message);
+  
+  // Fallback to file
+  try {
+    const credentialsPath = path.join(__dirname, 'google-credentials.json');
+    if (fs.existsSync(credentialsPath)) {
+      const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+      return credentials.web;
+    }
+  } catch (error) {
+    console.error('Error loading Google credentials:', error.message);
+  }
+  
+  return null;
+}
+
+// Initialize OAuth client
+let oauth2Client;
+const googleCredentials = loadGoogleCredentials();
+
+if (googleCredentials) {
+  oauth2Client = new google.auth.OAuth2(
+    googleCredentials.client_id,
+    googleCredentials.client_secret,
+    googleCredentials.redirect_uris[0]
+  );
+  console.log('Google OAuth2 client initialized');
+} else {
+  console.log('Google credentials not found - OAuth will not work');
 }
 
 // Load config from file or env vars
