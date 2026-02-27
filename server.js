@@ -118,6 +118,20 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Get config (safe values for frontend)
+app.get('/api/config', (req, res) => {
+  res.json({
+    SHEET_URL: CONFIG.SHEET_URL,
+    LAOZHANG_BASE_URL: CONFIG.LAOZHANG_BASE_URL,
+    LAOZHANG_MODEL: CONFIG.LAOZHANG_MODEL,
+    GITHUB_REPO: CONFIG.GITHUB_REPO,
+    GITHUB_BRANCH: CONFIG.GITHUB_BRANCH,
+    WP_URL: CONFIG.WP_URL,
+    WP_USERNAME: CONFIG.WP_USERNAME
+    // Note: API keys and passwords are NOT exposed to frontend
+  });
+});
+
 // Get current sheet URL
 app.get('/api/sheet-url', (req, res) => {
   res.json({ 

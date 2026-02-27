@@ -19,9 +19,24 @@ class WordPressClawApp {
 
   init() {
     this.bindEvents();
-    this.loadSheetInfo();
-    this.loadSavedSheets();
-    this.loadData();
+    this.loadConfig().then(() => {
+      this.loadSheetInfo();
+      this.loadSavedSheets();
+      this.loadData();
+    });
+  }
+
+  async loadConfig() {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const serverConfig = await response.json();
+        Object.assign(CONFIG, serverConfig);
+        console.log('Config loaded:', CONFIG);
+      }
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
   }
 
   bindEvents() {
