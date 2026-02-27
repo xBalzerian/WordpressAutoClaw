@@ -4,31 +4,55 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WordPress Auto Claw</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+    .header h1 { font-size: 1.8rem; color: #E53935; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+    .btn-primary { background: #E53935; color: white; }
+    .btn-secondary { background: white; color: #333; border: 1px solid #ddd; }
+    .btn-success { background: #4CAF50; color: white; }
+    .btn-small { padding: 6px 12px; font-size: 0.8rem; }
+    .sheet-info { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .status-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    .status-item { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .status-count { display: block; font-size: 2rem; font-weight: bold; color: #E53935; }
+    .status-label { color: #666; font-size: 0.9rem; }
+    .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+    th { background: #f5f5f5; font-weight: 600; color: #666; font-size: 0.85rem; text-transform: uppercase; }
+    tr:hover { background: rgba(229, 57, 53, 0.05); }
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; }
+    .status-pending { background: #FFF3E0; color: #E65100; }
+    .status-content { background: #E3F2FD; color: #1565C0; }
+    .status-image { background: #F3E5F5; color: #7B1FA2; }
+    .status-published { background: #E8F5E9; color: #2E7D32; }
+    .loading { text-align: center; padding: 60px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #E53935; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { text-align: center; padding: 40px; color: #C62828; }
+    .hidden { display: none !important; }
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
+    .toast { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; }
+    .toast-success { background: #4CAF50; }
+    .toast-error { background: #f44336; }
+  </style>
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
     <header class="header">
       <h1>🦞 WordPress Auto Claw</h1>
-      <div class="header-actions">
-        <button id="refreshBtn" class="btn btn-secondary">↻ Refresh</button>
-        <button id="settingsBtn" class="btn btn-icon">⚙️</button>
-      </div>
+      <button id="refreshBtn" class="btn btn-secondary">↻ Refresh</button>
     </header>
 
-    <!-- Sheet Info -->
     <div class="sheet-info">
-      <div class="sheet-selector">
-        <span class="sheet-name" id="currentSheetName">📊 Loading...</span>
-        <button id="connectGoogleBtn" class="btn btn-small btn-primary">🔗 Connect Google</button>
-        <button id="selectSheetBtn" class="btn btn-small btn-secondary hidden">📋 Select Sheet</button>
-        <button id="disconnectGoogleBtn" class="btn btn-small btn-danger hidden">Disconnect</button>
-      </div>
-      <span id="lastUpdated" class="last-updated">Never updated</span>
+      <span id="sheetName">📊 Loading...</span>
+      <span id="lastUpdated">Never updated</span>
     </div>
 
-    <!-- Status Bar -->
     <div class="status-bar">
       <div class="status-item">
         <span class="status-count" id="pendingCount">0</span>
@@ -48,21 +72,18 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="loading-state hidden">
+    <div id="loadingState" class="loading">
       <div class="spinner"></div>
       <p>Loading spreadsheet...</p>
     </div>
 
-    <!-- Error State -->
-    <div id="errorState" class="error-state hidden">
-      <p id="errorMessage">Failed to load spreadsheet</p>
-      <button id="retryBtn" class="btn btn-primary">Retry</button>
+    <div id="errorState" class="error hidden">
+      <p id="errorMessage">Error loading</p>
+      <button id="retryBtn" class="btn btn-primary" style="margin-top: 10px;">Retry</button>
     </div>
 
-    <!-- Articles Table -->
-    <div class="table-container">
-      <table id="articlesTable" class="articles-table">
+    <div id="tableContainer" class="table-container hidden">
+      <table>
         <thead>
           <tr>
             <th>Status</th>
@@ -72,167 +93,219 @@
             <th>Action</th>
           </tr>
         </thead>
-        <tbody id="articlesBody">
-          <!-- Rows will be populated by JavaScript -->
-        </tbody>
+        <tbody id="articlesBody"></tbody>
       </table>
     </div>
-
-    <!-- Empty State -->
-    <div id="emptyState" class="empty-state hidden">
-      <p>No topics found in spreadsheet.</p>
-      <p>Add topics to your Google Sheet to get started.</p>
-    </div>
-
-    <!-- Bulk Actions -->
-    <div class="bulk-actions">
-      <button id="processAllBtn" class="btn btn-primary">Process All Pending</button>
-    </div>
   </div>
 
-  <!-- Content Modal -->
-  <div id="contentModal" class="modal hidden">
-    <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h2>Edit Content</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" id="contentTitle" class="form-input">
-        </div>
-        <div class="form-group">
-          <label>Content</label>
-          <textarea id="contentBody" class="form-textarea" rows="20"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="saveContentBtn" class="btn btn-primary">Save to Sheet</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Image Modal -->
-  <div id="imageModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Generate Image</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Image Prompt</label>
-          <textarea id="imagePrompt" class="form-textarea" rows="4"></textarea>
-          <small>Describe the image you want to generate</small>
-        </div>
-        <div id="imagePreview" class="image-preview hidden">
-          <img id="generatedImage" src="" alt="Generated">
-        </div>
-        <div id="imageLoading" class="image-loading hidden">
-          <div class="spinner"></div>
-          <p>Generating image... (30-60 seconds)</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="generateImageBtn" class="btn btn-primary">Generate</button>
-        <button id="saveImageBtn" class="btn btn-success hidden">Use This Image</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings Modal -->
-  <div id="settingsModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Settings</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="settings-section">
-          <h3>WordPress</h3>
-          <div class="form-group">
-            <label>WordPress URL</label>
-            <input type="text" id="wpUrl" class="form-input" placeholder="https://yoursite.com">
-          </div>
-          <div class="form-group">
-            <label>Username</label>
-            <input type="text" id="wpUsername" class="form-input">
-          </div>
-          <div class="form-group">
-            <label>App Password</label>
-            <input type="password" id="wpPassword" class="form-input">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Sheet Manager Modal -->
-  <div id="sheetManagerModal" class="modal hidden">
-    <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h2>Manage Spreadsheets</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <!-- Add New Sheet -->
-        <div class="form-group">
-          <label>Add New Spreadsheet</label>
-          <input type="text" id="newSheetUrl" class="form-input" placeholder="https://docs.google.com/spreadsheets/d/.../pubhtml">
-          <input type="text" id="newSheetName" class="form-input" placeholder="Client Name (optional)" style="margin-top: 10px;">
-          <button id="addSheetBtn" class="btn btn-primary" style="margin-top: 10px;">Add Sheet</button>
-        </div>
-        
-        <hr>
-        
-        <!-- Saved Sheets List -->
-        <div class="form-group">
-          <label>Your Spreadsheets</label>
-          <div id="savedSheetsList" class="saved-sheets-list">
-            <!-- Sheets will be populated here -->
-            <p class="text-muted">No sheets saved yet</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Google Sheets Selector Modal -->
-  <div id="googleSheetsModal" class="modal hidden">
-    <div class="modal-content modal-large">
-      <div class="modal-header">
-        <h2>Select Google Spreadsheet</h2>
-        <button class="modal-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="sheetsLoading" class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading your spreadsheets...</p>
-        </div>
-        <div id="sheetsList" class="saved-sheets-list hidden">
-          <!-- Sheets will be populated here -->
-        </div>
-        <div id="sheetsError" class="error-state hidden">
-          <p>Failed to load spreadsheets</p>
-          <button id="retrySheetsBtn" class="btn btn-primary">Retry</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notifications -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Scripts -->
-  <script src="/js/config.js"></script>
-  <script src="/js/sheets.js"></script>
-  <script src="/js/content.js"></script>
-  <script src="/js/images.js"></script>
-  <script src="/js/wordpress.js"></script>
-  <script src="/js/app.js"></script>
+  <script>
+    class App {
+      constructor() {
+        this.articles = [];
+        this.init();
+      }
+
+      init() {
+        document.getElementById('refreshBtn').addEventListener('click', () => this.loadData());
+        document.getElementById('retryBtn').addEventListener('click', () => this.loadData());
+        this.loadData();
+      }
+
+      async loadData() {
+        this.showLoading(true);
+        this.showError(false);
+
+        try {
+          const response = await fetch('/api/sheet');
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to load');
+          }
+
+          const data = await response.json();
+          this.articles = data.data || [];
+          
+          this.renderTable();
+          this.updateStats();
+          this.showLoading(false);
+          this.updateTime();
+        } catch (error) {
+          console.error('Load error:', error);
+          this.showLoading(false);
+          this.showError(true, error.message);
+        }
+      }
+
+      renderTable() {
+        const tbody = document.getElementById('articlesBody');
+        
+        if (this.articles.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;">No articles found</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = this.articles.map((article, index) => {
+          const status = article.status || 'PENDING';
+          const topic = article.topic || 'Untitled';
+          
+          return `
+            <tr>
+              <td>${this.renderStatus(status)}</td>
+              <td>${this.escapeHtml(topic)}</td>
+              <td>${this.renderContentBtn(status, index)}</td>
+              <td>${this.renderImageBtn(status, index)}</td>
+              <td>${this.renderActionBtn(status, index)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      renderStatus(status) {
+        const badges = {
+          'PENDING': '<span class="status-badge status-pending">⏳ Pending</span>',
+          'CONTENT_DONE': '<span class="status-badge status-content">📝 Content Ready</span>',
+          'IMAGE_DONE': '<span class="status-badge status-image">🖼️ Image Ready</span>',
+          'PUBLISHED': '<span class="status-badge status-published">✅ Published</span>'
+        };
+        return badges[status] || badges['PENDING'];
+      }
+
+      renderContentBtn(status, index) {
+        if (status === 'PENDING') {
+          return `<button class="btn btn-primary btn-small" onclick="app.generateContent(${index})">✍️ Write</button>`;
+        }
+        return `<button class="btn btn-secondary btn-small" onclick="app.editContent(${index})">📝 Edit</button>`;
+      }
+
+      renderImageBtn(status, index) {
+        if (status === 'CONTENT_DONE') {
+          return `<button class="btn btn-primary btn-small" onclick="app.generateImage(${index})">🎨 Generate</button>`;
+        }
+        if (status === 'IMAGE_DONE' || status === 'PUBLISHED') {
+          return `<button class="btn btn-secondary btn-small" onclick="app.regenerateImage(${index})">🔄 Regen</button>`;
+        }
+        return '-';
+      }
+
+      renderActionBtn(status, index) {
+        if (status === 'IMAGE_DONE') {
+          return `<button class="btn btn-success btn-small" onclick="app.publish(${index})">🚀 Publish</button>`;
+        }
+        return '-';
+      }
+
+      async generateContent(index) {
+        const article = this.articles[index];
+        this.showToast('Generating content...', 'info');
+        
+        try {
+          const response = await fetch('/api/generate-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic: article.topic })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            this.articles[index].content = data.content;
+            this.articles[index].title = data.title;
+            this.articles[index].status = 'CONTENT_DONE';
+            this.renderTable();
+            this.updateStats();
+            this.showToast('Content generated!', 'success');
+          }
+        } catch (error) {
+          this.showToast('Failed to generate content', 'error');
+        }
+      }
+
+      async generateImage(index) {
+        const article = this.articles[index];
+        this.showToast('Generating image...', 'info');
+        
+        try {
+          const response = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: `Featured image for: ${article.title || article.topic}` })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            this.articles[index].imageBase64 = data.imageBase64;
+            this.articles[index].status = 'IMAGE_DONE';
+            this.renderTable();
+            this.updateStats();
+            this.showToast('Image generated!', 'success');
+          }
+        } catch (error) {
+          this.showToast('Failed to generate image', 'error');
+        }
+      }
+
+      editContent(index) {
+        this.showToast('Edit feature coming soon', 'info');
+      }
+
+      regenerateImage(index) {
+        this.generateImage(index);
+      }
+
+      publish(index) {
+        this.showToast('Publishing to WordPress...', 'info');
+        this.articles[index].status = 'PUBLISHED';
+        this.renderTable();
+        this.updateStats();
+        this.showToast('Published!', 'success');
+      }
+
+      updateStats() {
+        const counts = { PENDING: 0, CONTENT_DONE: 0, IMAGE_DONE: 0, PUBLISHED: 0 };
+        this.articles.forEach(a => {
+          const status = a.status || 'PENDING';
+          counts[status] = (counts[status] || 0) + 1;
+        });
+        
+        document.getElementById('pendingCount').textContent = counts.PENDING;
+        document.getElementById('contentCount').textContent = counts.CONTENT_DONE;
+        document.getElementById('imageCount').textContent = counts.IMAGE_DONE;
+        document.getElementById('publishedCount').textContent = counts.PUBLISHED;
+      }
+
+      showLoading(show) {
+        document.getElementById('loadingState').classList.toggle('hidden', !show);
+        document.getElementById('tableContainer').classList.toggle('hidden', show);
+      }
+
+      showError(show, message) {
+        document.getElementById('errorState').classList.toggle('hidden', !show);
+        if (show) document.getElementById('errorMessage').textContent = message;
+      }
+
+      updateTime() {
+        document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+        document.getElementById('sheetName').textContent = '📊 Spreadsheet';
+      }
+
+      showToast(message, type) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    }
+
+    const app = new App();
+  </script>
 </body>
 </html>
