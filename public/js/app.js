@@ -55,6 +55,16 @@ class WordPressClawApp {
       this.openSheetManagerModal();
     });
 
+    // Connect sheet button
+    document.getElementById('connectSheetBtn').addEventListener('click', () => {
+      this.openSheetManagerModal();
+    });
+
+    // Disconnect sheet button
+    document.getElementById('disconnectSheetBtn').addEventListener('click', () => {
+      this.disconnectSheet();
+    });
+
     // Process all button
     document.getElementById('processAllBtn').addEventListener('click', () => {
       this.processAllPending();
@@ -434,9 +444,46 @@ class WordPressClawApp {
     try {
       const response = await fetch('/api/sheet-url');
       const data = await response.json();
-      document.getElementById('currentSheetName').textContent = `📊 ${data.name || 'Spreadsheet'}`;
+      
+      const connectBtn = document.getElementById('connectSheetBtn');
+      const switchBtn = document.getElementById('switchSheetBtn');
+      const disconnectBtn = document.getElementById('disconnectSheetBtn');
+      
+      if (data.configured) {
+        document.getElementById('currentSheetName').textContent = `📊 ${data.name || 'Spreadsheet'}`;
+        connectBtn.classList.add('hidden');
+        switchBtn.classList.remove('hidden');
+        disconnectBtn.classList.remove('hidden');
+      } else {
+        document.getElementById('currentSheetName').textContent = '📊 No sheet connected';
+        connectBtn.classList.remove('hidden');
+        switchBtn.classList.add('hidden');
+        disconnectBtn.classList.add('hidden');
+      }
     } catch (error) {
       console.error('Failed to load sheet info:', error);
+    }
+  }
+
+  async disconnectSheet() {
+    if (!confirm('Disconnect current sheet?')) return;
+    
+    try {
+      const response = await fetch('/api/sheet-url', {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        CONFIG.SHEET_URL = '';
+        this.sheetsService = new SheetsService('');
+        this.articles = [];
+        this.renderTable();
+        this.updateStats();
+        this.loadSheetInfo();
+        this.showToast('Sheet disconnected', 'success');
+      }
+    } catch (error) {
+      this.showToast('Failed to disconnect sheet', 'error');
     }
   }
 

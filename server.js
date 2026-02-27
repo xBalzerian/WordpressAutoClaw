@@ -11,37 +11,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Environment variables
-const CONFIG = {
-  SHEET_URL: process.env.SHEET_URL,
-  LAOZHANG_API_KEY: process.env.LAOZHANG_API_KEY,
+// Environment variables - use let so we can update at runtime
+let CONFIG = {
+  SHEET_URL: process.env.SHEET_URL || '',
+  LAOZHANG_API_KEY: process.env.LAOZHANG_API_KEY || '',
   LAOZHANG_BASE_URL: process.env.LAOZHANG_BASE_URL || 'https://api.laozhang.ai/v1',
   LAOZHANG_MODEL: process.env.LAOZHANG_MODEL || 'gemini-3-pro-image-preview',
-  GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-  GITHUB_REPO: process.env.GITHUB_REPO,
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || '',
+  GITHUB_REPO: process.env.GITHUB_REPO || '',
   GITHUB_BRANCH: process.env.GITHUB_BRANCH || 'main',
-  WP_URL: process.env.WP_URL,
-  WP_USERNAME: process.env.WP_USERNAME,
-  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD
+  WP_URL: process.env.WP_URL || '',
+  WP_USERNAME: process.env.WP_USERNAME || '',
+  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD || ''
 };
 
-// In-memory storage for multiple sheets (will reset on server restart)
+// In-memory storage for multiple sheets
 let savedSheets = [];
 
 // Extract spreadsheet ID from URL
 function extractSpreadsheetId(url) {
-  // Handle different URL formats:
-  // https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
-  // https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml
+  if (!url) return null;
   
   // Try standard format first
   let match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (match) return match[1];
   
-  // Try pubhtml format - extract the encoded ID
+  // Try pubhtml format
   match = url.match(/\/d\/e\/([a-zA-Z0-9-_]+)\/pubhtml/);
   if (match) {
-    // For pubhtml format, we need to use a different approach
     return `e/${match[1]}`;
   }
   
@@ -50,7 +47,8 @@ function extractSpreadsheetId(url) {
 
 // Get sheet name from URL for display
 function getSheetNameFromUrl(url) {
-  // Extract a readable name from the URL or return default
+  if (!url) return 'Spreadsheet';
+  // Try to extract name from URL or return default
   return 'Spreadsheet';
 }
 
@@ -115,7 +113,11 @@ function parseCSV(csvText) {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    sheetConfigured: !!CONFIG.SHEET_URL
+  });
 });
 
 // Get config (safe values for frontend)
@@ -127,8 +129,8 @@ app.get('/api/config', (req, res) => {
     GITHUB_REPO: CONFIG.GITHUB_REPO,
     GITHUB_BRANCH: CONFIG.GITHUB_BRANCH,
     WP_URL: CONFIG.WP_URL,
-    WP_USERNAME: CONFIG.WP_USERNAME
-    // Note: API keys and passwords are NOT exposed to frontend
+    WP_USERNAME: CONFIG.WP_USERNAME,
+    sheetConfigured: !!CONFIG.SHEET_URL
   });
 });
 
@@ -136,11 +138,12 @@ app.get('/api/config', (req, res) => {
 app.get('/api/sheet-url', (req, res) => {
   res.json({ 
     url: CONFIG.SHEET_URL,
-    name: getSheetNameFromUrl(CONFIG.SHEET_URL)
+    name: getSheetNameFromUrl(CONFIG.SHEET_URL),
+    configured: !!CONFIG.SHEET_URL
   });
 });
 
-// Update sheet URL (for switching sheets)
+// Update sheet URL (for connecting new sheet)
 app.post('/api/sheet-url', (req, res) => {
   const { url } = req.body;
   if (!url) {
@@ -148,11 +151,21 @@ app.post('/api/sheet-url', (req, res) => {
   }
   
   CONFIG.SHEET_URL = url;
+  console.log('Sheet URL updated:', url);
+  
   res.json({ 
     success: true, 
     url,
-    name: getSheetNameFromUrl(url)
+    name: getSheetNameFromUrl(url),
+    configured: true
   });
+});
+
+// Disconnect sheet
+app.delete('/api/sheet-url', (req, res) => {
+  CONFIG.SHEET_URL = '';
+  console.log('Sheet URL disconnected');
+  res.json({ success: true, message: 'Sheet disconnected' });
 });
 
 // Get saved sheets list
@@ -175,13 +188,24 @@ app.post('/api/sheets', (req, res) => {
   };
   
   savedSheets.push(sheet);
+  
+  // Also set as current sheet
+  CONFIG.SHEET_URL = url;
+  
   res.json({ success: true, sheet });
 });
 
 // Delete a sheet from the list
 app.delete('/api/sheets/:id', (req, res) => {
   const { id } = req.params;
+  const sheet = savedSheets.find(s => s.id === id);
   savedSheets = savedSheets.filter(s => s.id !== id);
+  
+  // If we deleted the current sheet, clear it
+  if (sheet && sheet.url === CONFIG.SHEET_URL) {
+    CONFIG.SHEET_URL = '';
+  }
+  
   res.json({ success: true });
 });
 
@@ -201,26 +225,29 @@ app.post('/api/sheets/:id/switch', (req, res) => {
 // Get sheet data
 app.get('/api/sheet', async (req, res) => {
   try {
+    console.log('Current SHEET_URL:', CONFIG.SHEET_URL);
+    
     if (!CONFIG.SHEET_URL) {
       return res.status(400).json({ 
         error: 'No sheet URL configured',
-        hint: 'Add a sheet URL in settings'
+        hint: 'Click "Switch Sheet" to add a spreadsheet'
       });
     }
 
     const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
     if (!spreadsheetId) {
-      return res.status(400).json({ error: 'Invalid sheet URL format' });
+      return res.status(400).json({ 
+        error: 'Invalid sheet URL format',
+        hint: 'Use a Google Sheets "Publish to web" URL'
+      });
     }
 
     let exportUrl;
     
     // Check if it's a published document ID (starts with e/)
     if (spreadsheetId.startsWith('e/')) {
-      // Use pub format for published sheets
       exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv`;
     } else {
-      // Use standard export format
       exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
     }
     
@@ -237,7 +264,6 @@ app.get('/api/sheet', async (req, res) => {
     res.json(parsed);
   } catch (error) {
     console.error('Sheet error:', error.message);
-    console.error('Sheet URL attempted:', CONFIG.SHEET_URL);
     
     res.status(500).json({ 
       error: 'Failed to fetch sheet',
@@ -293,6 +319,10 @@ app.post('/api/generate-image', async (req, res) => {
   try {
     const { prompt } = req.body;
     
+    if (!CONFIG.LAOZHANG_API_KEY) {
+      return res.status(400).json({ error: 'Laozhang API key not configured' });
+    }
+    
     const response = await axios.post(
       `${CONFIG.LAOZHANG_BASE_URL}/images/generations`,
       {
@@ -329,6 +359,11 @@ app.post('/api/generate-image', async (req, res) => {
 app.post('/api/upload-image', async (req, res) => {
   try {
     const { imageBase64, filename } = req.body;
+    
+    if (!CONFIG.GITHUB_TOKEN || !CONFIG.GITHUB_REPO) {
+      return res.status(400).json({ error: 'GitHub not configured' });
+    }
+    
     const timestamp = Date.now();
     const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '-');
     const filePath = `images/${timestamp}-${safeFilename}`;
@@ -364,6 +399,10 @@ app.post('/api/publish', async (req, res) => {
   try {
     const { title, content, excerpt, tags, featuredImageUrl } = req.body;
 
+    if (!CONFIG.WP_URL || !CONFIG.WP_USERNAME || !CONFIG.WP_APP_PASSWORD) {
+      return res.status(400).json({ error: 'WordPress not configured' });
+    }
+
     const postData = {
       title,
       content,
@@ -393,11 +432,12 @@ app.post('/api/publish', async (req, res) => {
   }
 });
 
-// Serve frontend - only for non-API routes and non-static files
+// Serve frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('SHEET_URL configured:', !!CONFIG.SHEET_URL);
 });
