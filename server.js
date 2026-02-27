@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Environment variables
 const CONFIG = {
@@ -393,7 +393,7 @@ app.post('/api/publish', async (req, res) => {
   }
 });
 
-// Serve frontend
+// Serve frontend - only for non-API routes and non-static files
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
