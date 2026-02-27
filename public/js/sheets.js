@@ -15,17 +15,19 @@ class SheetsService {
   }
 
   /**
-   * Read sheet data using CSV export (no auth needed for reading)
+   * Read sheet data via backend API
    */
   async readSheet(sheetName = 'Sheet1') {
     try {
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+      // Call our backend API instead of direct Google fetch
+      const response = await fetch('/api/sheet');
       
-      const response = await fetch(csvUrl);
-      if (!response.ok) throw new Error('Failed to fetch sheet');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch sheet');
+      }
       
-      const csvText = await response.text();
-      return this.parseCSV(csvText);
+      return await response.json();
     } catch (error) {
       console.error('Read sheet error:', error);
       throw error;

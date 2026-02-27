@@ -20,34 +20,32 @@ class ImageService {
    * Generate featured image for an article
    */
   async generateImage(prompt, options = {}) {
-    const { width = 1200, height = 630 } = options;
-    
     try {
       console.log('Generating image with prompt:', prompt);
       
-      // For testing without actual API call
-      await this.simulateDelay(3000);
+      // Call backend API
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt })
+      });
       
-      // In production, this would call Laozhang API
-      // const response = await fetch(`${this.baseUrl}/images/generations`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${this.apiKey}`,
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify({
-      //     model: this.model,
-      //     prompt: prompt,
-      //     n: 1,
-      //     size: `${width}x${height}`,
-      //     quality: 'high'
-      //   })
-      // });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate image');
+      }
       
-      // Mock response
+      const data = await response.json();
+      
+      // Convert base64 to data URL
+      const imageUrl = `data:${data.mimeType};base64,${data.imageBase64}`;
+      
       return {
         success: true,
-        imageUrl: 'https://via.placeholder.com/1200x630/E53935/FFFFFF?text=Generated+Image',
+        imageUrl: imageUrl,
+        imageBase64: data.imageBase64,
         prompt: prompt
       };
     } catch (error) {
@@ -88,43 +86,29 @@ class ImageService {
   /**
    * Upload image to GitHub for hosting
    */
-  async uploadToGitHub(imageBuffer, filename) {
+  async uploadToGitHub(imageBase64, filename) {
     try {
       const timestamp = Date.now();
       const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '-');
-      const filePath = `${this.githubPath}/${timestamp}-${safeFilename}`;
       
-      // Convert to base64
-      const base64Content = typeof imageBuffer === 'string' 
-        ? imageBuffer 
-        : this.arrayBufferToBase64(imageBuffer);
-      
-      const response = await fetch(`https://api.github.com/repos/${this.githubRepo}/contents/${filePath}`, {
-        method: 'PUT',
+      // Call backend API
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
         headers: {
-          'Authorization': `token ${this.githubToken}`,
-          'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: `Upload image: ${safeFilename}`,
-          content: base64Content,
-          branch: this.githubBranch
+          imageBase64,
+          filename: `${timestamp}-${safeFilename}`
         })
       });
       
       if (!response.ok) {
-        throw new Error(`GitHub upload failed: ${response.status}`);
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload image');
       }
       
-      const data = await response.json();
-      return {
-        success: true,
-        url: data.content.download_url,
-        htmlUrl: data.content.html_url,
-        sha: data.content.sha,
-        path: filePath
-      };
+      return await response.json();
     } catch (error) {
       console.error('GitHub upload error:', error);
       return {

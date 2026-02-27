@@ -23,21 +23,25 @@ class ContentService {
     const userPrompt = this.buildUserPrompt(topic, { includeFAQ, includeCTA });
 
     try {
-      // For now, we'll use a mock response since we need backend proxy
-      // In production, this would call the Kimi API
-      console.log('Generating content for:', topic);
+      // Call backend API to generate content
+      const response = await fetch('/api/generate-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          topic,
+          wordCount,
+          tone
+        })
+      });
       
-      // Mock response for testing
-      await this.simulateDelay(2000);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate content');
+      }
       
-      return {
-        success: true,
-        title: `${topic}: A Comprehensive Guide`,
-        content: this.generateMockContent(topic, wordCount),
-        excerpt: `Learn everything about ${topic} in this comprehensive guide.`,
-        tags: topic.toLowerCase().replace(/\s+/g, ', '),
-        focusKeyword: topic.toLowerCase()
-      };
+      return await response.json();
     } catch (error) {
       console.error('Content generation error:', error);
       return {
