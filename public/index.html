@@ -19,7 +19,10 @@
 
     <!-- Sheet Info -->
     <div class="sheet-info">
-      <span class="sheet-name">📊 Tranplastic.com</span>
+      <div class="sheet-selector">
+        <span class="sheet-name" id="currentSheetName">📊 Loading...</span>
+        <button id="switchSheetBtn" class="btn btn-small btn-secondary">Switch Sheet</button>
+      </div>
       <span id="lastUpdated" class="last-updated">Never updated</span>
     </div>
 
@@ -162,6 +165,36 @@
       </div>
       <div class="modal-footer">
         <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sheet Manager Modal -->
+  <div id="sheetManagerModal" class="modal hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>Manage Spreadsheets</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Add New Sheet -->
+        <div class="form-group">
+          <label>Add New Spreadsheet</label>
+          <input type="text" id="newSheetUrl" class="form-input" placeholder="https://docs.google.com/spreadsheets/d/.../pubhtml">
+          <input type="text" id="newSheetName" class="form-input" placeholder="Client Name (optional)" style="margin-top: 10px;">
+          <button id="addSheetBtn" class="btn btn-primary" style="margin-top: 10px;">Add Sheet</button>
+        </div>
+        
+        <hr>
+        
+        <!-- Saved Sheets List -->
+        <div class="form-group">
+          <label>Your Spreadsheets</label>
+          <div id="savedSheetsList" class="saved-sheets-list">
+            <!-- Sheets will be populated here -->
+            <p class="text-muted">No sheets saved yet</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

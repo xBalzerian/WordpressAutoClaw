@@ -25,10 +25,33 @@ const CONFIG = {
   WP_APP_PASSWORD: process.env.WP_APP_PASSWORD
 };
 
+// In-memory storage for multiple sheets (will reset on server restart)
+let savedSheets = [];
+
 // Extract spreadsheet ID from URL
 function extractSpreadsheetId(url) {
-  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  return match ? match[1] : null;
+  // Handle different URL formats:
+  // https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+  // https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml
+  
+  // Try standard format first
+  let match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) return match[1];
+  
+  // Try pubhtml format - extract the encoded ID
+  match = url.match(/\/d\/e\/([a-zA-Z0-9-_]+)\/pubhtml/);
+  if (match) {
+    // For pubhtml format, we need to use a different approach
+    return `e/${match[1]}`;
+  }
+  
+  return null;
+}
+
+// Get sheet name from URL for display
+function getSheetNameFromUrl(url) {
+  // Extract a readable name from the URL or return default
+  return 'Spreadsheet';
 }
 
 // Parse CSV
@@ -95,17 +118,97 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get sheet data - using Google Sheets API via gviz
+// Get current sheet URL
+app.get('/api/sheet-url', (req, res) => {
+  res.json({ 
+    url: CONFIG.SHEET_URL,
+    name: getSheetNameFromUrl(CONFIG.SHEET_URL)
+  });
+});
+
+// Update sheet URL (for switching sheets)
+app.post('/api/sheet-url', (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  CONFIG.SHEET_URL = url;
+  res.json({ 
+    success: true, 
+    url,
+    name: getSheetNameFromUrl(url)
+  });
+});
+
+// Get saved sheets list
+app.get('/api/sheets', (req, res) => {
+  res.json(savedSheets);
+});
+
+// Add a new sheet to the list
+app.post('/api/sheets', (req, res) => {
+  const { url, name } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  const sheet = {
+    id: Date.now().toString(),
+    url,
+    name: name || getSheetNameFromUrl(url),
+    addedAt: new Date().toISOString()
+  };
+  
+  savedSheets.push(sheet);
+  res.json({ success: true, sheet });
+});
+
+// Delete a sheet from the list
+app.delete('/api/sheets/:id', (req, res) => {
+  const { id } = req.params;
+  savedSheets = savedSheets.filter(s => s.id !== id);
+  res.json({ success: true });
+});
+
+// Switch to a saved sheet
+app.post('/api/sheets/:id/switch', (req, res) => {
+  const { id } = req.params;
+  const sheet = savedSheets.find(s => s.id === id);
+  
+  if (!sheet) {
+    return res.status(404).json({ error: 'Sheet not found' });
+  }
+  
+  CONFIG.SHEET_URL = sheet.url;
+  res.json({ success: true, sheet });
+});
+
+// Get sheet data
 app.get('/api/sheet', async (req, res) => {
   try {
-    const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
-    if (!spreadsheetId) {
-      return res.status(400).json({ error: 'Invalid sheet URL' });
+    if (!CONFIG.SHEET_URL) {
+      return res.status(400).json({ 
+        error: 'No sheet URL configured',
+        hint: 'Add a sheet URL in settings'
+      });
     }
 
-    // Try the new Google Sheets CSV export format
-    // First, try the export format
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    const spreadsheetId = extractSpreadsheetId(CONFIG.SHEET_URL);
+    if (!spreadsheetId) {
+      return res.status(400).json({ error: 'Invalid sheet URL format' });
+    }
+
+    let exportUrl;
+    
+    // Check if it's a published document ID (starts with e/)
+    if (spreadsheetId.startsWith('e/')) {
+      // Use pub format for published sheets
+      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/pub?output=csv`;
+    } else {
+      // Use standard export format
+      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    }
     
     console.log('Fetching sheet:', exportUrl);
     
@@ -122,22 +225,19 @@ app.get('/api/sheet', async (req, res) => {
     console.error('Sheet error:', error.message);
     console.error('Sheet URL attempted:', CONFIG.SHEET_URL);
     
-    // Return more detailed error
     res.status(500).json({ 
       error: 'Failed to fetch sheet',
       details: error.message,
-      hint: 'Make sure the sheet is shared with "Anyone with the link can view"'
+      hint: 'Make sure the sheet is published to web (File > Share > Publish to web)'
     });
   }
 });
 
-// Generate content (proxy to Kimi)
+// Generate content
 app.post('/api/generate-content', async (req, res) => {
   try {
     const { topic, wordCount = 1500, tone = 'professional' } = req.body;
     
-    // For now, return mock content since we need Kimi API key
-    // In production, this would call Kimi API
     const content = `# ${topic}: A Comprehensive Guide
 
 ## Introduction
@@ -174,7 +274,7 @@ A: Understanding ${topic} helps...`;
   }
 });
 
-// Generate image (proxy to Laozhang)
+// Generate image
 app.post('/api/generate-image', async (req, res) => {
   try {
     const { prompt } = req.body;
@@ -198,7 +298,6 @@ app.post('/api/generate-image', async (req, res) => {
       }
     );
 
-    // Convert to base64
     const base64 = Buffer.from(response.data).toString('base64');
     
     res.json({

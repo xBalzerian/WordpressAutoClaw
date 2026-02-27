@@ -12,12 +12,15 @@ class WordPressClawApp {
     this.articles = [];
     this.currentRow = null;
     this.generatedImageUrl = null;
+    this.savedSheets = [];
     
     this.init();
   }
 
   init() {
     this.bindEvents();
+    this.loadSheetInfo();
+    this.loadSavedSheets();
     this.loadData();
   }
 
@@ -30,6 +33,11 @@ class WordPressClawApp {
     // Settings button
     document.getElementById('settingsBtn').addEventListener('click', () => {
       this.openSettingsModal();
+    });
+
+    // Switch sheet button
+    document.getElementById('switchSheetBtn').addEventListener('click', () => {
+      this.openSheetManagerModal();
     });
 
     // Process all button
@@ -67,6 +75,11 @@ class WordPressClawApp {
     // Settings save
     document.getElementById('saveSettingsBtn').addEventListener('click', () => {
       this.saveSettings();
+    });
+
+    // Sheet manager events
+    document.getElementById('addSheetBtn').addEventListener('click', () => {
+      this.addNewSheet();
     });
   }
 
@@ -389,7 +402,7 @@ class WordPressClawApp {
     document.getElementById('settingsModal').classList.remove('hidden');
   }
 
-  saveSettings()  saveSettings() {
+  saveSettings() {
     CONFIG.WP_URL = document.getElementById('wpUrl').value;
     CONFIG.WP_USERNAME = document.getElementById('wpUsername').value;
     CONFIG.WP_APP_PASSWORD = document.getElementById('wpPassword').value;
@@ -399,6 +412,127 @@ class WordPressClawApp {
     
     document.getElementById('settingsModal').classList.add('hidden');
     this.showToast('Settings saved', 'success');
+  }
+
+  // Sheet Management Methods
+  async loadSheetInfo() {
+    try {
+      const response = await fetch('/api/sheet-url');
+      const data = await response.json();
+      document.getElementById('currentSheetName').textContent = `📊 ${data.name || 'Spreadsheet'}`;
+    } catch (error) {
+      console.error('Failed to load sheet info:', error);
+    }
+  }
+
+  async loadSavedSheets() {
+    try {
+      const response = await fetch('/api/sheets');
+      this.savedSheets = await response.json();
+      this.renderSavedSheets();
+    } catch (error) {
+      console.error('Failed to load saved sheets:', error);
+    }
+  }
+
+  renderSavedSheets() {
+    const container = document.getElementById('savedSheetsList');
+    
+    if (this.savedSheets.length === 0) {
+      container.innerHTML = '<p class="text-muted">No sheets saved yet</p>';
+      return;
+    }
+
+    container.innerHTML = this.savedSheets.map(sheet => `
+      <div class="sheet-item ${sheet.url === CONFIG.SHEET_URL ? 'active' : ''}" data-id="${sheet.id}">
+        <div class="sheet-item-info">
+          <div class="sheet-item-name">${this.escapeHtml(sheet.name)}</div>
+          <div class="sheet-item-url">${this.escapeHtml(sheet.url)}</div>
+        </div>
+        <div class="sheet-item-actions">
+          <button class="btn btn-small btn-primary" onclick="app.switchToSheet('${sheet.id}')">Switch</button>
+          <button class="btn btn-small btn-danger" onclick="app.deleteSheet('${sheet.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  openSheetManagerModal() {
+    this.renderSavedSheets();
+    document.getElementById('sheetManagerModal').classList.remove('hidden');
+  }
+
+  async addNewSheet() {
+    const url = document.getElementById('newSheetUrl').value.trim();
+    const name = document.getElementById('newSheetName').value.trim() || 'Spreadsheet';
+    
+    if (!url) {
+      this.showToast('Please enter a sheet URL', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, name })
+      });
+
+      if (response.ok) {
+        this.showToast('Sheet added successfully', 'success');
+        document.getElementById('newSheetUrl').value = '';
+        document.getElementById('newSheetName').value = '';
+        await this.loadSavedSheets();
+        
+        // Also switch to this sheet
+        const data = await response.json();
+        await this.switchToSheet(data.sheet.id);
+      } else {
+        const error = await response.json();
+        this.showToast(error.error || 'Failed to add sheet', 'error');
+      }
+    } catch (error) {
+      this.showToast('Failed to add sheet', 'error');
+    }
+  }
+
+  async switchToSheet(id) {
+    try {
+      const response = await fetch(`/api/sheets/${id}/switch`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        CONFIG.SHEET_URL = data.sheet.url;
+        this.sheetsService = new SheetsService(CONFIG.SHEET_URL);
+        
+        document.getElementById('currentSheetName').textContent = `📊 ${data.sheet.name}`;
+        document.getElementById('sheetManagerModal').classList.add('hidden');
+        
+        this.showToast(`Switched to ${data.sheet.name}`, 'success');
+        this.loadData();
+      }
+    } catch (error) {
+      this.showToast('Failed to switch sheet', 'error');
+    }
+  }
+
+  async deleteSheet(id) {
+    if (!confirm('Are you sure you want to delete this sheet?')) return;
+
+    try {
+      const response = await fetch(`/api/sheets/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        this.showToast('Sheet deleted', 'success');
+        await this.loadSavedSheets();
+      }
+    } catch (error) {
+      this.showToast('Failed to delete sheet', 'error');
+    }
   }
 
   showLoading(show) {
