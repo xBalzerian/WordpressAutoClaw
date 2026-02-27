@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: wordpress-auto-claw
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SHEET_URL
+        sync: false
+      - key: LAOZHANG_API_KEY
+        sync: false
+      - key: LAOZHANG_MODEL
+        value: gemini-3-pro-image-preview
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      - key: WP_URL
+        sync: false
+      - key: WP_USERNAME
+        sync: false
+      - key: WP_APP_PASSWORD
+        sync: false
