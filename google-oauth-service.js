@@ -52,6 +52,7 @@ class GoogleOAuthService {
       });
 
       const documentId = createResponse.data.documentId;
+      console.log('Created document:', documentId);
 
       // Share with your email immediately
       try {
@@ -68,22 +69,30 @@ class GoogleOAuthService {
         console.log('Could not share document:', shareError.message);
       }
 
-      // Insert content
-      await this.docs.documents.batchUpdate({
-        documentId: documentId,
-        requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: {
-                  index: 1
-                },
-                text: content
+      // Get document to find end index
+      const doc = await this.docs.documents.get({ documentId });
+      const endIndex = doc.data.body.content[doc.data.body.content.length - 1].endIndex || 2;
+      console.log('Document end index:', endIndex);
+
+      // Insert content at the end
+      if (content && content.length > 0) {
+        await this.docs.documents.batchUpdate({
+          documentId: documentId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: {
+                    index: endIndex - 1
+                  },
+                  text: content
+                }
               }
-            }
-          ]
-        }
-      });
+            ]
+          }
+        });
+        console.log('Content inserted successfully');
+      }
 
       // Get document URL
       const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
@@ -96,6 +105,7 @@ class GoogleOAuthService {
       };
     } catch (error) {
       console.error('Google Docs error:', error.message);
+      console.error('Full error:', error);
       return {
         success: false,
         error: error.message
