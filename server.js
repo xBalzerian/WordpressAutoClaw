@@ -34,12 +34,28 @@ const CONFIG = {
   GITHUB_BRANCH: 'main'
 };
 
-// WordPress config (from env or defaults)
+// WordPress config (load from env or defaults)
 let WP_CONFIG = {
   url: process.env.WP_URL || '',
   username: process.env.WP_USERNAME || '',
   password: process.env.WP_APP_PASSWORD || ''
 };
+
+// Load saved WP config from env if available
+try {
+  if (process.env.WP_URL) {
+    WP_CONFIG.url = process.env.WP_URL;
+    console.log('Loaded WP URL from env');
+  }
+  if (process.env.WP_USERNAME) {
+    WP_CONFIG.username = process.env.WP_USERNAME;
+  }
+  if (process.env.WP_APP_PASSWORD) {
+    WP_CONFIG.password = process.env.WP_APP_PASSWORD;
+  }
+} catch (e) {
+  console.error('Failed to load WP config from env:', e.message);
+}
 
 // Parse CSV
 function parseCSV(csvText) {
@@ -628,7 +644,22 @@ app.post('/api/wp-config', (req, res) => {
     password: password || WP_CONFIG.password
   };
   
-  res.json({ success: true, message: 'WordPress config updated', url: cleanUrl });
+  res.json({ 
+    success: true, 
+    message: 'WordPress config updated', 
+    url: cleanUrl,
+    note: 'To make this permanent, add these to Render Environment Variables:\nWP_URL=' + cleanUrl + '\nWP_USERNAME=' + (username || WP_CONFIG.username) + '\nWP_APP_PASSWORD=' + (password || WP_CONFIG.password)
+  });
+});
+
+// Disconnect WordPress
+app.post('/api/wp-disconnect', (req, res) => {
+  WP_CONFIG = {
+    url: '',
+    username: '',
+    password: ''
+  };
+  res.json({ success: true, message: 'WordPress disconnected' });
 });
 
 // Get WP config

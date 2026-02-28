@@ -106,6 +106,7 @@
         
         <button id="saveWpSettings" class="btn btn-primary">Save & Test Connection</button>
         <button id="testWpConnection" class="btn btn-secondary" style="margin-left: 10px;">Test Only</button>
+        <button id="disconnectWp" class="btn btn-warning" style="margin-left: 10px;">Disconnect</button>
       </div>
     </div>
 
@@ -191,6 +192,7 @@
         document.getElementById('retryBtn').addEventListener('click', () => this.loadData());
         document.getElementById('saveWpSettings').addEventListener('click', () => this.saveWpSettings());
         document.getElementById('testWpConnection').addEventListener('click', () => this.testWpConnection());
+        document.getElementById('disconnectWp').addEventListener('click', () => this.disconnectWp());
         document.getElementById('toggleSettings').addEventListener('click', (e) => {
           const form = document.getElementById('settingsForm');
           form.classList.toggle('hidden');
@@ -275,6 +277,31 @@
         } else {
           statusEl.textContent = '● WP Not Connected';
           statusEl.className = 'disconnected';
+        }
+      }
+
+      async disconnectWp() {
+        if (!confirm('Are you sure you want to disconnect WordPress?')) return;
+        
+        try {
+          const response = await fetch('/api/wp-disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            this.wpConnected = false;
+            this.updateWpStatus();
+            this.showToast('WordPress disconnected', 'success');
+            
+            // Clear form
+            document.getElementById('wpUrl').value = '';
+            document.getElementById('wpUsername').value = '';
+            document.getElementById('wpPassword').value = '';
+          }
+        } catch (error) {
+          this.showToast('Failed to disconnect', 'error');
         }
       }
 
