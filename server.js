@@ -221,6 +221,13 @@ app.post('/api/generate-content', async (req, res) => {
       
       if (!sheetResult.success) {
         console.error('Failed to update spreadsheet:', sheetResult.error);
+        return res.status(500).json({ 
+          error: 'Doc created but spreadsheet update failed: ' + sheetResult.error,
+          docUrl: docResult.docUrl,
+          docId: docResult.docId
+        });
+      } else {
+        console.log('Spreadsheet updated successfully:', sheetResult.updatedRange);
       }
     }
     
