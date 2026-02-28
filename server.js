@@ -38,8 +38,7 @@ const CONFIG = {
 let WP_CONFIG = {
   url: process.env.WP_URL || '',
   username: process.env.WP_USERNAME || '',
-  password: process.env.WP_APP_PASSWORD || '',
-  author: process.env.WP_AUTHOR || '1'
+  password: process.env.WP_APP_PASSWORD || ''
 };
 
 // Parse CSV
@@ -538,7 +537,6 @@ app.post('/api/publish', async (req, res) => {
       content: fullContent,
       excerpt: excerpt,
       status: 'publish',
-      author: parseInt(WP_CONFIG.author),
       meta: {
         _yoast_wpseo_title: metaTitle,
         _yoast_wpseo_metadesc: metaDescription,
@@ -618,16 +616,20 @@ app.post('/api/publish', async (req, res) => {
 
 // Update WordPress config
 app.post('/api/wp-config', (req, res) => {
-  const { url, username, password, author } = req.body;
+  const { url, username, password } = req.body;
+  
+  // Remove /wp-admin or /wp-login from URL if present
+  let cleanUrl = url || WP_CONFIG.url;
+  cleanUrl = cleanUrl.replace(/\/wp-admin.*$/, '').replace(/\/wp-login.*$/, '').replace(/\/$/, '');
   
   WP_CONFIG = {
-    url: url || WP_CONFIG.url,
+    url: cleanUrl,
     username: username || WP_CONFIG.username,
-    password: password || WP_CONFIG.password,
-    author: author || WP_CONFIG.author
+    password: password || WP_CONFIG.password
   };
   
-  res.json({ success: true, message: 'WordPress config updated' });
+  res.json({ success: true, message: 'WordPress config updated', url: cleanUrl });
+});
 });
 
 // Get WP config
@@ -636,7 +638,6 @@ app.get('/api/wp-config', (req, res) => {
     url: WP_CONFIG.url,
     username: WP_CONFIG.username ? '***' : '',
     password: WP_CONFIG.password ? '***' : '',
-    author: WP_CONFIG.author,
     configured: !!(WP_CONFIG.url && WP_CONFIG.username && WP_CONFIG.password)
   });
 });

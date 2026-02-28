@@ -102,10 +102,6 @@
             <label>Application Password</label>
             <input type="password" id="wpPassword" placeholder="xxxx xxxx xxxx xxxx xxxx" />
           </div>
-          <div class="form-group">
-            <label>Author ID</label>
-            <input type="text" id="wpAuthor" placeholder="1" value="1" />
-          </div>
         </div>
         
         <button id="saveWpSettings" class="btn btn-primary">Save & Test Connection</button>
@@ -208,7 +204,6 @@
           const config = await response.json();
           
           if (config.url) document.getElementById('wpUrl').value = config.url;
-          if (config.author) document.getElementById('wpAuthor').value = config.author;
           
           this.wpConnected = config.configured;
           this.updateWpStatus();
@@ -221,7 +216,6 @@
         const url = document.getElementById('wpUrl').value.trim();
         const username = document.getElementById('wpUsername').value.trim();
         const password = document.getElementById('wpPassword').value.trim();
-        const author = document.getElementById('wpAuthor').value.trim() || '1';
 
         if (!url || !username || !password) {
           this.showToast('Please fill in all WordPress fields', 'error');
@@ -233,7 +227,7 @@
           await fetch('/api/wp-config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, username, password, author })
+            body: JSON.stringify({ url, username, password })
           });
 
           // Test connection
