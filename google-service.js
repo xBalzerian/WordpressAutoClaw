@@ -29,27 +29,35 @@ class GoogleService {
     });
     
     this.docs = google.docs({ version: 'v1', auth: this.auth });
+    this.drive = google.drive({ version: 'v3', auth: this.auth });
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
   }
 
   async createGoogleDoc(title, content) {
     try {
-      // Create document in a specific folder if provided
-      const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
-      
-      const createRequest = {
+      // Create document (without parents - docs API doesn't support it)
+      const createResponse = await this.docs.documents.create({
         requestBody: {
           title: title
         }
-      };
-      
-      if (folderId) {
-        createRequest.requestBody.parents = [folderId];
-      }
-      
-      // Create document
-      const createResponse = await this.docs.documents.create(createRequest);
+      });
+
       const documentId = createResponse.data.documentId;
+
+      // If folder ID provided, move doc to folder using Drive API
+      const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
+      if (folderId) {
+        try {
+          await this.drive.files.update({
+            fileId: documentId,
+            addParents: folderId,
+            fields: 'id, parents'
+          });
+        } catch (driveError) {
+          console.log('Could not move to folder:', driveError.message);
+          // Continue anyway - doc is created
+        }
+      }
 
       // Insert content
       await this.docs.documents.batchUpdate({
