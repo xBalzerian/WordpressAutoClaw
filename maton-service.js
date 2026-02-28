@@ -31,7 +31,8 @@ class MatonService {
     }
     
     try {
-      const url = `${this.baseURL}/connections/${connId}/docs/create`;
+      // Try with api_key as query parameter
+      const url = `${this.baseURL}/connections/${connId}/docs/create?api_key=${this.apiKey}`;
       console.log('Request URL:', url);
       
       const response = await axios.post(
@@ -42,7 +43,6 @@ class MatonService {
         },
         {
           headers: {
-            'x-api-key': this.apiKey,
             'Content-Type': 'application/json'
           },
           timeout: 60000
