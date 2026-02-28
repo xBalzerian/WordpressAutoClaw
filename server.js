@@ -2,11 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
-const MatonService = require('./maton-service');
+const GoogleService = require('./google-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const maton = new MatonService();
+const googleService = new GoogleService();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -177,9 +177,9 @@ app.post('/api/generate-content', async (req, res) => {
     // Generate optimized content
     const content = generateOptimizedContent(keyword, existingContent);
     
-    // Create Google Doc via Maton
+    // Create Google Doc via Google Service
     const docTitle = `${keyword} | Huntington Beach, CA`;
-    const docResult = await maton.createGoogleDoc(docTitle, content.fullContent);
+    const docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
     
     if (!docResult.success) {
       return res.status(500).json({ error: 'Failed to create Google Doc: ' + docResult.error });
@@ -187,7 +187,7 @@ app.post('/api/generate-content', async (req, res) => {
     
     // Update spreadsheet with GDoc link
     if (spreadsheetId && rowIndex) {
-      const sheetResult = await maton.updateSpreadsheet(
+      const sheetResult = await googleService.updateSpreadsheet(
         spreadsheetId,
         `E${rowIndex}`,
         [[docResult.docUrl]]
