@@ -630,7 +630,6 @@ app.post('/api/wp-config', (req, res) => {
   
   res.json({ success: true, message: 'WordPress config updated', url: cleanUrl });
 });
-});
 
 // Get WP config
 app.get('/api/wp-config', (req, res) => {
