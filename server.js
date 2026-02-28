@@ -766,6 +766,36 @@ A: Incisions are strategically placed to minimize visibility. Scars fade over ti
   };
 }
 
+// Update spreadsheet with image links
+app.post('/api/update-images', async (req, res) => {
+  try {
+    const { rowIndex, featureImage, supportImage1, supportImage2 } = req.body;
+    
+    if (!storedTokens) {
+      return res.status(401).json({ 
+        error: 'Not authenticated with Google. Please visit /auth/google first.' 
+      });
+    }
+    
+    googleService.setCredentialsFromTokens(storedTokens);
+    
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    if (!spreadsheetId) {
+      return res.status(400).json({ error: 'SPREADSHEET_ID not configured' });
+    }
+    
+    // Update columns G, H, I
+    await googleService.updateSpreadsheet(spreadsheetId, `G${rowIndex}`, [[featureImage || '']]);
+    await googleService.updateSpreadsheet(spreadsheetId, `H${rowIndex}`, [[supportImage1 || '']]);
+    await googleService.updateSpreadsheet(spreadsheetId, `I${rowIndex}`, [[supportImage2 || '']]);
+    
+    res.json({ success: true, message: 'Image links updated in spreadsheet' });
+  } catch (error) {
+    console.error('Update images error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
