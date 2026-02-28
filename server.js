@@ -1080,22 +1080,24 @@ app.post('/api/update-service-page', async (req, res) => {
       focusKeyword,
       featureImageUrl,
       supportImage1Url,
-      supportImage2Url
+      supportImage2Url,
+      rowIndex
     } = req.body;
 
     if (!WP_CONFIG.url || !WP_CONFIG.username || !WP_CONFIG.password) {
       return res.status(400).json({ error: 'WordPress not configured' });
     }
 
-    // Extract post ID from service URL
+    // Extract CURRENT post ID from service URL (using existing slug)
     let postId = null;
+    let currentSlug = null;
     if (serviceUrl) {
       const match = serviceUrl.match(/\/services\/([^\/]+)/);
       if (match) {
-        const slug = match[1];
+        currentSlug = match[1];
         try {
           const postResponse = await axios.get(
-            `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${slug}`,
+            `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${currentSlug}`,
             {
               auth: {
                 username: WP_CONFIG.username,
@@ -1107,14 +1109,18 @@ app.post('/api/update-service-page', async (req, res) => {
             postId = postResponse.data[0].id;
           }
         } catch (e) {
-          console.log('Could not find existing post by slug');
+          console.log('Could not find existing post by slug:', currentSlug);
         }
       }
     }
 
     if (!postId) {
-      return res.status(404).json({ error: 'Service page not found. Please check the Service URL.' });
+      return res.status(404).json({ error: `Service page not found for slug: ${currentSlug}. Please check the Service URL.` });
     }
+
+    // Generate NEW slug from main keyword
+    const newSlug = focusKeyword.replace(/\s+/g, '-').toLowerCase();
+    const newServiceUrl = `${WP_CONFIG.url}/services/${newSlug}/`;
 
     // Prepare content with backlinks
     let fullContent = content;
@@ -1137,14 +1143,12 @@ app.post('/api/update-service-page', async (req, res) => {
       );
     }
 
-    // Update post with new slug
-    const safeSlug = focusKeyword.replace(/\s+/g, '-').toLowerCase();
-    
+    // Update post with NEW slug (from main keyword)
     const postData = {
       title: title,
       content: fullContent,
       status: 'publish',
-      slug: safeSlug,
+      slug: newSlug,
       meta: {
         _yoast_wpseo_title: `${focusKeyword} Huntington Beach CA | Tran Plastic Surgery`,
         _yoast_wpseo_metadesc: `${focusKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
@@ -1226,12 +1230,36 @@ app.post('/api/update-service-page', async (req, res) => {
       }
     }
 
+    // Update spreadsheet with new URLs
+    let spreadsheetUpdated = false;
+    if (rowIndex && storedTokens) {
+      try {
+        googleService.setCredentialsFromTokens(storedTokens);
+        const spreadsheetId = process.env.SPREADSHEET_ID;
+        
+        if (spreadsheetId) {
+          // Update Service URL (column A) with new slug
+          await googleService.updateSpreadsheet(spreadsheetId, `A${rowIndex}`, [[newServiceUrl]]);
+          // Update WP Post URL (column E) with new slug
+          await googleService.updateSpreadsheet(spreadsheetId, `E${rowIndex}`, [[newServiceUrl]]);
+          // Update Status (column F) to Published
+          await googleService.updateSpreadsheet(spreadsheetId, `F${rowIndex}`, [['Published']]);
+          spreadsheetUpdated = true;
+          console.log(`[WP] Spreadsheet updated for row ${rowIndex} with new URL: ${newServiceUrl}`);
+        }
+      } catch (sheetError) {
+        console.error('[WP] Failed to update spreadsheet:', sheetError.message);
+      }
+    }
+
     res.json({
       success: true,
       postId: postId,
-      url: response.data.link,
+      url: newServiceUrl,
+      oldUrl: serviceUrl,
       title: response.data.title.rendered,
-      message: 'Service page updated successfully'
+      spreadsheetUpdated: spreadsheetUpdated,
+      message: 'Service page updated successfully with new slug'
     });
   } catch (error) {
     console.error('Update service page error:', error.message);
