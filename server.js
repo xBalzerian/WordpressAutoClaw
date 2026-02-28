@@ -1070,6 +1070,63 @@ async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
   }
 }
 
+// Command endpoint for Auto Post by keyword
+app.post('/api/command/post', async (req, res) => {
+  try {
+    const { keyword } = req.body;
+    
+    if (!keyword) {
+      return res.status(400).json({ error: 'Keyword is required' });
+    }
+
+    console.log('[Command] Auto post requested for:', keyword);
+
+    // Fetch spreadsheet data
+    const sheetResponse = await axios.get(`${WP_CONFIG.url ? WP_CONFIG.url.replace('https://tranplastic.com', 'https://wordpress-claw.onrender.com') : 'https://wordpress-claw.onrender.com'}/api/sheet`);
+    const { data } = sheetResponse.data;
+
+    // Find row by keyword
+    const row = data.find(r => 
+      r['Main Keyword']?.toLowerCase() === keyword.toLowerCase() ||
+      r['Main Keyword']?.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    if (!row) {
+      return res.status(404).json({ error: `Service not found: ${keyword}` });
+    }
+
+    console.log('[Command] Found row:', row['Main Keyword']);
+
+    // Call the update function
+    const updateData = {
+      title: row['Main Keyword'],
+      serviceUrl: row['Service URL'],
+      gdocUrl: row['GDocs Link'],
+      focusKeyword: row['Main Keyword'],
+      featureImageUrl: row['Feature Image'],
+      supportImage1Url: row['Support Image 1'],
+      supportImage2Url: row['Support Image 2'],
+      rowIndex: row._rowIndex
+    };
+
+    // Make internal request to update-service-page
+    const updateRes = await axios.post(
+      `http://localhost:${PORT}/api/update-service-page`,
+      updateData,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    res.json({
+      success: true,
+      message: `Posted: ${row['Main Keyword']}`,
+      result: updateRes.data
+    });
+  } catch (error) {
+    console.error('[Command] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update WordPress Service Page
 app.post('/api/update-service-page', async (req, res) => {
   console.log('[WP] Update service page endpoint called');
