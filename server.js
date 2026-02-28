@@ -254,6 +254,44 @@ app.get('/auth/google/callback', async (req, res) => {
   }
 });
 
+// Update spreadsheet with doc link
+app.post('/api/update-spreadsheet', async (req, res) => {
+  try {
+    const { rowIndex, docUrl } = req.body;
+    
+    if (!storedTokens) {
+      return res.status(401).json({ 
+        error: 'Not authenticated with Google. Please visit /auth/google first.' 
+      });
+    }
+    
+    googleService.setCredentialsFromTokens(storedTokens);
+    
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    if (!spreadsheetId) {
+      return res.status(400).json({ error: 'SPREADSHEET_ID not configured' });
+    }
+    
+    // Update GDocs Link column (column E)
+    const range = `E${rowIndex}`;
+    
+    const sheetResult = await googleService.updateSpreadsheet(
+      spreadsheetId,
+      range,
+      [[docUrl]]
+    );
+    
+    if (sheetResult.success) {
+      res.json({ success: true, message: 'Spreadsheet updated', range: sheetResult.updatedRange });
+    } else {
+      res.status(500).json({ error: sheetResult.error });
+    }
+  } catch (error) {
+    console.error('Update spreadsheet error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Generate image
 app.post('/api/generate-image', async (req, res) => {
   try {
