@@ -1,18 +1,21 @@
 const axios = require('axios');
 
-const MATON_API_KEY = process.env.MATON_API_KEY || 'CYndigcgcHitD2CYT68LmrrSi60GAAxvgJwNLJtK-hDVy-ABfe1RJPGJOsx-2Ak7gL-JPuA2DvsyLAJuF8CMyBOmlSdCAB2zVVj1zZaLJA';
+const MATON_API_KEY = process.env.MATON_API_KEY || '';
+const MATON_CONNECTION_ID = process.env.MATON_CONNECTION_ID || '9e0f0cd7-3fda-45cc-9034-cc9f4e9aa1bc';
 const MATON_BASE_URL = 'https://api.maton.ai/v1';
 
 class MatonService {
   constructor() {
     this.apiKey = MATON_API_KEY;
+    this.connectionId = MATON_CONNECTION_ID;
     this.baseURL = MATON_BASE_URL;
   }
 
-  async createGoogleDoc(title, content, connectionId = '9e0f0cd7-3fda-45cc-9034-cc9f4e9aa1bc') {
+  async createGoogleDoc(title, content, connectionId = null) {
+    const connId = connectionId || this.connectionId;
     try {
       const response = await axios.post(
-        `${this.baseURL}/connections/${connectionId}/docs/create`,
+        `${this.baseURL}/connections/${connId}/docs/create`,
         {
           title: title,
           content: content
@@ -42,10 +45,11 @@ class MatonService {
     }
   }
 
-  async updateSpreadsheet(spreadsheetId, range, values, connectionId = '9e0f0cd7-3fda-45cc-9034-cc9f4e9aa1bc') {
+  async updateSpreadsheet(spreadsheetId, range, values, connectionId = null) {
+    const connId = connectionId || this.connectionId;
     try {
       const response = await axios.post(
-        `${this.baseURL}/connections/${connectionId}/sheets/values`,
+        `${this.baseURL}/connections/${connId}/sheets/values`,
         {
           spreadsheetId: spreadsheetId,
           range: range,
