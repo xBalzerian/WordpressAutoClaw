@@ -1170,17 +1170,18 @@ app.post('/api/update-service-page', async (req, res) => {
     // Extract CURRENT post/page ID from service URL (using existing slug)
     let postId = null;
     let currentSlug = null;
-    let isPage = false;
+    let postType = 'services'; // Default to services post type
+    
     if (serviceUrl) {
       const match = serviceUrl.match(/\/services\/([^\/]+)/);
       if (match) {
         currentSlug = match[1];
-        console.log('[WP] Looking for page/post with slug:', currentSlug);
+        console.log('[WP] Looking for service with slug:', currentSlug);
         
-        // Try Pages first (service pages are usually Pages)
+        // Try services post type first (custom post type)
         try {
-          const pageResponse = await axios.get(
-            `${WP_CONFIG.url}/wp-json/wp/v2/pages?slug=${currentSlug}`,
+          const serviceResponse = await axios.get(
+            `${WP_CONFIG.url}/wp-json/wp/v2/services?slug=${currentSlug}`,
             {
               auth: {
                 username: WP_CONFIG.username,
@@ -1188,13 +1189,35 @@ app.post('/api/update-service-page', async (req, res) => {
               }
             }
           );
-          if (pageResponse.data && pageResponse.data.length > 0) {
-            postId = pageResponse.data[0].id;
-            isPage = true;
-            console.log('[WP] Found PAGE ID:', postId);
+          if (serviceResponse.data && serviceResponse.data.length > 0) {
+            postId = serviceResponse.data[0].id;
+            postType = 'services';
+            console.log('[WP] Found SERVICE ID:', postId);
           }
         } catch (e) {
-          console.log('[WP] Page not found, trying posts...');
+          console.log('[WP] Service not found, trying pages...');
+        }
+        
+        // If not found as service, try Pages
+        if (!postId) {
+          try {
+            const pageResponse = await axios.get(
+              `${WP_CONFIG.url}/wp-json/wp/v2/pages?slug=${currentSlug}`,
+              {
+                auth: {
+                  username: WP_CONFIG.username,
+                  password: WP_CONFIG.password
+                }
+              }
+            );
+            if (pageResponse.data && pageResponse.data.length > 0) {
+              postId = pageResponse.data[0].id;
+              postType = 'pages';
+              console.log('[WP] Found PAGE ID:', postId);
+            }
+          } catch (e) {
+            console.log('[WP] Page not found, trying posts...');
+          }
         }
         
         // If not found as page, try Posts
@@ -1211,6 +1234,7 @@ app.post('/api/update-service-page', async (req, res) => {
             );
             if (postResponse.data && postResponse.data.length > 0) {
               postId = postResponse.data[0].id;
+              postType = 'posts';
               console.log('[WP] Found POST ID:', postId);
             }
           } catch (e) {
@@ -1219,7 +1243,7 @@ app.post('/api/update-service-page', async (req, res) => {
         }
         
         if (!postId) {
-          console.log('[WP] No page or post found with slug:', currentSlug);
+          console.log('[WP] No service, page or post found with slug:', currentSlug);
         }
       } else {
         console.log('[WP] Could not extract slug from URL:', serviceUrl);
@@ -1272,7 +1296,7 @@ app.post('/api/update-service-page', async (req, res) => {
     };
 
     // Use correct endpoint based on whether it's a page or post
-    const endpoint = isPage ? 'pages' : 'posts';
+    const endpoint = postType;
     console.log(`[WP] Updating ${endpoint} with ID:`, postId);
     
     const response = await axios.post(
