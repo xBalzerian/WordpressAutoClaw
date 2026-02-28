@@ -2,15 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
-const GoogleService = require('./google-service');
+const GoogleOAuthService = require('./google-oauth-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const googleService = new GoogleService();
+const googleService = new GoogleOAuthService();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Store tokens (in production, use a database)
+let storedTokens = null;
 
 // Hardcoded config
 const CONFIG = {
@@ -163,6 +166,16 @@ app.post('/api/generate-content', async (req, res) => {
   try {
     const { keyword, serviceUrl, rowIndex, spreadsheetId } = req.body;
     
+    // Check if authenticated
+    if (!storedTokens) {
+      return res.status(401).json({ 
+        error: 'Not authenticated with Google. Please visit /auth/google first.' 
+      });
+    }
+    
+    // Set credentials
+    googleService.setCredentialsFromTokens(storedTokens);
+    
     // Fetch existing content from website
     let existingContent = '';
     if (serviceUrl) {
@@ -177,7 +190,7 @@ app.post('/api/generate-content', async (req, res) => {
     // Generate optimized content
     const content = generateOptimizedContent(keyword, existingContent);
     
-    // Create Google Doc via Google Service
+    // Create Google Doc via OAuth
     const docTitle = `${keyword} | Huntington Beach, CA`;
     const docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
     
@@ -212,6 +225,27 @@ app.post('/api/generate-content', async (req, res) => {
   } catch (error) {
     console.error('Generate content error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Google OAuth routes
+app.get('/auth/google', (req, res) => {
+  const authUrl = googleService.getAuthUrl();
+  res.redirect(authUrl);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) {
+    return res.status(400).send('No code provided');
+  }
+  
+  try {
+    const tokens = await googleService.setCredentials(code);
+    storedTokens = tokens;
+    res.send('Authentication successful! You can close this window and go back to ClawBot.');
+  } catch (error) {
+    res.status(500).send('Authentication failed: ' + error.message);
   }
 });
 
