@@ -1119,8 +1119,8 @@ app.post('/api/update-service-page', async (req, res) => {
     // Prepare content with backlinks
     let fullContent = content;
     
-    // Add backlinks to Dr. Tran
-    fullContent += `\n\n---\n\n**About Dr. Tuan A. Tran**\n\nDr. Tuan A. Tran is a board-certified plastic surgeon serving Huntington Beach, CA and surrounding areas including [Orange County](https://tranplastic.com/), [Fountain Valley](https://tranplastic.com/), and [Westminster](https://tranplastic.com/). With extensive experience in ${focusKeyword} and other cosmetic procedures, Dr. Tran provides personalized care to help patients achieve their aesthetic goals.\n\nSchedule your consultation today at [Tran Plastic Surgery](https://tranplastic.com/) or call (714) 839-8000.`;
+    // Add backlink to Dr. Tran only
+    fullContent += `\n\n---\n\n**About Dr. Tuan A. Tran**\n\nDr. Tuan A. Tran is a board-certified plastic surgeon with extensive experience in ${focusKeyword} and other cosmetic procedures. Schedule your consultation today at [Tran Plastic Surgery](https://tranplastic.com/) or call (714) 839-8000.`;
 
     // Insert support images with proper SEO
     if (supportImage1Url) {
