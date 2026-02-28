@@ -34,13 +34,21 @@ class GoogleService {
 
   async createGoogleDoc(title, content) {
     try {
-      // Create document
-      const createResponse = await this.docs.documents.create({
+      // Create document in a specific folder if provided
+      const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
+      
+      const createRequest = {
         requestBody: {
           title: title
         }
-      });
-
+      };
+      
+      if (folderId) {
+        createRequest.requestBody.parents = [folderId];
+      }
+      
+      // Create document
+      const createResponse = await this.docs.documents.create(createRequest);
       const documentId = createResponse.data.documentId;
 
       // Insert content
@@ -71,6 +79,7 @@ class GoogleService {
       };
     } catch (error) {
       console.error('Google Docs error:', error.message);
+      console.error('Full error:', error);
       return {
         success: false,
         error: error.message
