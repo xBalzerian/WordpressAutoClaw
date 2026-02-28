@@ -1254,44 +1254,109 @@ app.post('/api/update-service-page', async (req, res) => {
       return res.status(404).json({ error: `Service page not found for slug: ${currentSlug}. Please check the Service URL.` });
     }
 
+    // Capitalize function for titles
+    function capitalizeWords(str) {
+      return str.replace(/\b\w/g, char => char.toUpperCase());
+    }
+    
+    const capitalizedKeyword = capitalizeWords(focusKeyword);
+    const pageTitle = `${capitalizedKeyword} | Huntington Beach, CA`;
+
     // Generate NEW slug from main keyword
     const newSlug = focusKeyword.replace(/\s+/g, '-').toLowerCase();
     const newServiceUrl = `${WP_CONFIG.url}/services/${newSlug}/`;
 
-    // Prepare content with backlinks
+    // Prepare content with proper HTML structure (NO H1 - that's the title)
     let fullContent = content;
     
+    // Remove any existing H1 from content if present
+    fullContent = fullContent.replace(/^#\s+.*\n/, '');
+    
+    // Convert markdown to HTML for WordPress
+    // Replace ## with h2, ### with h3, etc.
+    fullContent = fullContent
+      .replace(/##\s+(.*)/g, '<h2>$1</h2>')
+      .replace(/###\s+(.*)/g, '<h3>$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n\n/g, '</p><p>');
+    
+    // Wrap in paragraphs if not already
+    if (!fullContent.startsWith('<')) {
+      fullContent = `<p>${fullContent}</p>`;
+    }
+    
     // Add backlink to Dr. Tran only
-    fullContent += `\n\n---\n\n**About Dr. Tuan A. Tran**\n\nDr. Tuan A. Tran is a board-certified plastic surgeon with extensive experience in ${focusKeyword} and other cosmetic procedures. Schedule your consultation today at [Tran Plastic Surgery](https://tranplastic.com/) or call (714) 839-8000.`;
+    fullContent += `\n\n<p><strong>About Dr. Tuan A. Tran</strong></p>\n<p>Dr. Tuan A. Tran is a board-certified plastic surgeon with extensive experience in ${capitalizedKeyword} and other cosmetic procedures. Schedule your consultation today at <a href="https://tranplastic.com/">Tran Plastic Surgery</a> or call (714) 839-8000.</p>`;
 
     // Insert support images with proper SEO
     if (supportImage1Url) {
       fullContent = fullContent.replace(
-        '## Who is a Good Candidate?',
-        `![${focusKeyword} procedure steps - ${focusKeyword} in Huntington Beach CA](${supportImage1Url} "${focusKeyword} procedure steps")\n\n## Who is a Good Candidate?`
+        '<h2>Who is a Good Candidate?</h2>',
+        `<img src="${supportImage1Url}" alt="${capitalizedKeyword} procedure steps - ${capitalizedKeyword} in Huntington Beach CA" title="${capitalizedKeyword} procedure steps" />\n\n<h2>Who is a Good Candidate?</h2>`
       );
     }
     
     if (supportImage2Url) {
       fullContent = fullContent.replace(
-        '## Procedure in Detail',
-        `![${focusKeyword} results and recovery - ${focusKeyword} Huntington Beach](${supportImage2Url} "${focusKeyword} results and recovery")\n\n## Procedure in Detail`
+        '<h2>Procedure in Detail</h2>',
+        `<img src="${supportImage2Url}" alt="${capitalizedKeyword} results and recovery - ${capitalizedKeyword} Huntington Beach" title="${capitalizedKeyword} results and recovery" />\n\n<h2>Procedure in Detail</h2>`
       );
     }
 
+    // Add FAQ Schema
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": `What is ${capitalizedKeyword}?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `${capitalizedKeyword} is a cosmetic surgical procedure performed by Dr. Tuan A. Tran at our Huntington Beach, CA facility to improve appearance and contour.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `How long does ${capitalizedKeyword} take?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `The procedure typically takes 1-3 hours depending on the complexity and extent of correction needed.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `What is the recovery time for ${capitalizedKeyword}?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Most patients return to light activities within 1-2 weeks, with full recovery taking 4-6 weeks.`
+          }
+        },
+        {
+          "@type": "Question",
+          "name": `Are the results of ${capitalizedKeyword} permanent?`,
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": `Results are long-lasting when you maintain a stable weight and healthy lifestyle.`
+          }
+        }
+      ]
+    };
+
     // Update post/page with NEW slug (from main keyword)
     const postData = {
-      title: title,
+      title: pageTitle,
       content: fullContent,
       status: 'publish',
       slug: newSlug,
       meta: {
-        _yoast_wpseo_title: `${focusKeyword} Huntington Beach CA | Tran Plastic Surgery`,
-        _yoast_wpseo_metadesc: `${focusKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
+        _yoast_wpseo_title: `${capitalizedKeyword} Huntington Beach CA | Tran Plastic Surgery`,
+        _yoast_wpseo_metadesc: `${capitalizedKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
         _yoast_wpseo_focuskw: focusKeyword,
-        _yoast_wpseo_opengraph_title: `${focusKeyword} Huntington Beach CA | Tran Plastic Surgery`,
-        _yoast_wpseo_opengraph_description: `${focusKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results.`,
-        _yoast_wpseo_opengraph_image: featureImageUrl || ''
+        _yoast_wpseo_opengraph_title: `${capitalizedKeyword} Huntington Beach CA | Tran Plastic Surgery`,
+        _yoast_wpseo_opengraph_description: `${capitalizedKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results.`,
+        _yoast_wpseo_opengraph_image: featureImageUrl || '',
+        _yoast_wpseo_schema: JSON.stringify(faqSchema)
       }
     };
 
