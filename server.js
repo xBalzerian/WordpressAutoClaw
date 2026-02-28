@@ -1072,6 +1072,9 @@ async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
 
 // Update WordPress Service Page
 app.post('/api/update-service-page', async (req, res) => {
+  console.log('[WP] Update service page endpoint called');
+  console.log('[WP] Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { 
       title,
@@ -1084,7 +1087,10 @@ app.post('/api/update-service-page', async (req, res) => {
       rowIndex
     } = req.body;
 
+    console.log('[WP] Extracted data:', { title, serviceUrl, focusKeyword, rowIndex });
+
     if (!WP_CONFIG.url || !WP_CONFIG.username || !WP_CONFIG.password) {
+      console.log('[WP] WP not configured');
       return res.status(400).json({ error: 'WordPress not configured' });
     }
 
@@ -1095,6 +1101,7 @@ app.post('/api/update-service-page', async (req, res) => {
       const match = serviceUrl.match(/\/services\/([^\/]+)/);
       if (match) {
         currentSlug = match[1];
+        console.log('[WP] Looking for post with slug:', currentSlug);
         try {
           const postResponse = await axios.get(
             `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${currentSlug}`,
@@ -1107,10 +1114,15 @@ app.post('/api/update-service-page', async (req, res) => {
           );
           if (postResponse.data && postResponse.data.length > 0) {
             postId = postResponse.data[0].id;
+            console.log('[WP] Found post ID:', postId);
+          } else {
+            console.log('[WP] No post found with slug:', currentSlug);
           }
         } catch (e) {
-          console.log('Could not find existing post by slug:', currentSlug);
+          console.log('[WP] Error finding post:', e.message);
         }
+      } else {
+        console.log('[WP] Could not extract slug from URL:', serviceUrl);
       }
     }
 
