@@ -1284,7 +1284,8 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     time: new Date().toISOString(),
-    wpConfigured: !!(WP_CONFIG.url && WP_CONFIG.username && WP_CONFIG.password)
+    wpConfigured: !!(WP_CONFIG.url && WP_CONFIG.username && WP_CONFIG.password),
+    version: '1.1.0' // Added to verify deployment
   });
 });
 
