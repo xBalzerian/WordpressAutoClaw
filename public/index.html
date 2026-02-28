@@ -33,16 +33,18 @@
     .status-label { color: #666; font-size: 0.9rem; }
     
     .table-container { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; }
     th { background: #f5f5f5; font-weight: 600; color: #666; white-space: nowrap; }
     tr:hover { background: rgba(229, 57, 53, 0.05); }
+    .truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 500; }
     .status-pending { background: #FFF3E0; color: #E65100; }
     .status-progress { background: #E3F2FD; color: #1565C0; }
     .status-complete { background: #E8F5E9; color: #2E7D32; }
     
-    .actions { display: flex; gap: 5px; flex-wrap: nowrap; }
+    .actions { display: flex; gap: 5px; flex-wrap: nowrap; min-width: 200px; }
+    .actions .btn { white-space: nowrap; }
     .loading { text-align: center; padding: 60px; }
     .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #E53935; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -342,9 +344,13 @@
             }
           });
           
-          // Action buttons - HIDDEN (command-based only)
-          rowHTML += `<td class="actions">
-            <span style="color: #666; font-size: 12px;">Use Telegram commands</span>
+          // Action buttons
+          const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+          
+          rowHTML += `<td class="actions" style="white-space: nowrap;">
+            <button type="button" class="btn btn-primary btn-small" onclick="event.preventDefault(); app.processRow(${index})" ${this.processing ? 'disabled' : ''}>🚀 Auto</button>
+            <button type="button" class="btn btn-secondary btn-small" onclick="event.preventDefault(); app.generateContent(${index})" ${this.processing ? 'disabled' : ''}>✍️ Content</button>
+            <button type="button" class="btn btn-warning btn-small" onclick="event.preventDefault(); app.generateImages(${index})" ${this.processing ? 'disabled' : ''}>🎨 Images</button>
           </td>`;
           
           rowHTML += '</tr>';
