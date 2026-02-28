@@ -22,7 +22,7 @@ class MatonService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'x-api-key': this.apiKey,
             'Content-Type': 'application/json'
           },
           timeout: 60000
@@ -57,7 +57,7 @@ class MatonService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'x-api-key': this.apiKey,
             'Content-Type': 'application/json'
           },
           timeout: 30000
