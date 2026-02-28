@@ -1094,17 +1094,20 @@ app.post('/api/update-service-page', async (req, res) => {
       return res.status(400).json({ error: 'WordPress not configured' });
     }
 
-    // Extract CURRENT post ID from service URL (using existing slug)
+    // Extract CURRENT post/page ID from service URL (using existing slug)
     let postId = null;
     let currentSlug = null;
+    let isPage = false;
     if (serviceUrl) {
       const match = serviceUrl.match(/\/services\/([^\/]+)/);
       if (match) {
         currentSlug = match[1];
-        console.log('[WP] Looking for post with slug:', currentSlug);
+        console.log('[WP] Looking for page/post with slug:', currentSlug);
+        
+        // Try Pages first (service pages are usually Pages)
         try {
-          const postResponse = await axios.get(
-            `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${currentSlug}`,
+          const pageResponse = await axios.get(
+            `${WP_CONFIG.url}/wp-json/wp/v2/pages?slug=${currentSlug}`,
             {
               auth: {
                 username: WP_CONFIG.username,
@@ -1112,14 +1115,38 @@ app.post('/api/update-service-page', async (req, res) => {
               }
             }
           );
-          if (postResponse.data && postResponse.data.length > 0) {
-            postId = postResponse.data[0].id;
-            console.log('[WP] Found post ID:', postId);
-          } else {
-            console.log('[WP] No post found with slug:', currentSlug);
+          if (pageResponse.data && pageResponse.data.length > 0) {
+            postId = pageResponse.data[0].id;
+            isPage = true;
+            console.log('[WP] Found PAGE ID:', postId);
           }
         } catch (e) {
-          console.log('[WP] Error finding post:', e.message);
+          console.log('[WP] Page not found, trying posts...');
+        }
+        
+        // If not found as page, try Posts
+        if (!postId) {
+          try {
+            const postResponse = await axios.get(
+              `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${currentSlug}`,
+              {
+                auth: {
+                  username: WP_CONFIG.username,
+                  password: WP_CONFIG.password
+                }
+              }
+            );
+            if (postResponse.data && postResponse.data.length > 0) {
+              postId = postResponse.data[0].id;
+              console.log('[WP] Found POST ID:', postId);
+            }
+          } catch (e) {
+            console.log('[WP] Error finding post:', e.message);
+          }
+        }
+        
+        if (!postId) {
+          console.log('[WP] No page or post found with slug:', currentSlug);
         }
       } else {
         console.log('[WP] Could not extract slug from URL:', serviceUrl);
@@ -1155,7 +1182,7 @@ app.post('/api/update-service-page', async (req, res) => {
       );
     }
 
-    // Update post with NEW slug (from main keyword)
+    // Update post/page with NEW slug (from main keyword)
     const postData = {
       title: title,
       content: fullContent,
@@ -1171,8 +1198,12 @@ app.post('/api/update-service-page', async (req, res) => {
       }
     };
 
+    // Use correct endpoint based on whether it's a page or post
+    const endpoint = isPage ? 'pages' : 'posts';
+    console.log(`[WP] Updating ${endpoint} with ID:`, postId);
+    
     const response = await axios.post(
-      `${WP_CONFIG.url}/wp-json/wp/v2/posts/${postId}`,
+      `${WP_CONFIG.url}/wp-json/wp/v2/${endpoint}/${postId}`,
       postData,
       {
         auth: {
@@ -1226,9 +1257,9 @@ app.post('/api/update-service-page', async (req, res) => {
           }
         );
 
-        // Set as featured image
+        // Set as featured image (use correct endpoint)
         await axios.post(
-          `${WP_CONFIG.url}/wp-json/wp/v2/posts/${postId}`,
+          `${WP_CONFIG.url}/wp-json/wp/v2/${endpoint}/${postId}`,
           { featured_media: mediaId },
           {
             auth: {

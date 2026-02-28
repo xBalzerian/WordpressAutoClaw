@@ -342,14 +342,9 @@
             }
           });
           
-          // Action buttons
-          const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
-          const status = (row[this.columns.status] || '').toLowerCase();
-          
+          // Action buttons - HIDDEN (command-based only)
           rowHTML += `<td class="actions">
-            <button type="button" class="btn btn-primary btn-small" onclick="event.preventDefault(); app.processRow(${index})" ${this.processing ? 'disabled' : ''}>🚀 Auto</button>
-            <button type="button" class="btn btn-secondary btn-small" onclick="event.preventDefault(); app.generateContent(${index})" ${this.processing ? 'disabled' : ''}>✍️ Content</button>
-            <button type="button" class="btn btn-warning btn-small" onclick="event.preventDefault(); app.generateImages(${index})" ${this.processing ? 'disabled' : ''}>🎨 Images</button>
+            <span style="color: #666; font-size: 12px;">Use Telegram commands</span>
           </td>`;
           
           rowHTML += '</tr>';
