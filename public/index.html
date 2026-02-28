@@ -78,34 +78,34 @@
       </div>
     </header>
 
-    <!-- WordPress Settings -->
-    <div class="settings-panel">
+    <!-- WordPress Settings (Hidden - configured in Render env) -->
+    <div class="settings-panel hidden" id="wpSettingsPanel">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3>🔗 WordPress Connection</h3>
-        <button id="toggleSettings" class="btn btn-small btn-secondary">Hide</button>
+        <h3>🔗 WordPress Connection (Configured in Render)</h3>
+        <button id="toggleWpSettings" class="btn btn-small btn-secondary">Show</button>
       </div>
       
-      <div id="settingsForm">
+      <div id="wpSettingsForm" class="hidden">
+        <p style="color: #666; margin-bottom: 15px;">WP connection is configured via Render Environment Variables.</p>
         <div class="form-row">
           <div class="form-group">
             <label>WordPress URL</label>
-            <input type="text" id="wpUrl" placeholder="https://tranplastic.com" />
+            <input type="text" id="wpUrl" placeholder="https://tranplastic.com" readonly />
           </div>
           <div class="form-group">
             <label>Username</label>
-            <input type="text" id="wpUsername" placeholder="admin" />
+            <input type="text" id="wpUsername" placeholder="admin" readonly />
           </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
             <label>Application Password</label>
-            <input type="password" id="wpPassword" placeholder="xxxx xxxx xxxx xxxx xxxx" />
+            <input type="password" id="wpPassword" placeholder="xxxx xxxx xxxx xxxx xxxx" readonly />
           </div>
         </div>
         
-        <button id="saveWpSettings" class="btn btn-primary">Save & Test Connection</button>
-        <button id="testWpConnection" class="btn btn-secondary" style="margin-left: 10px;">Test Only</button>
+        <button id="testWpConnection" class="btn btn-secondary">Test Connection</button>
         <button id="disconnectWp" class="btn btn-warning" style="margin-left: 10px;">Disconnect</button>
       </div>
     </div>
@@ -190,11 +190,10 @@
       bindEvents() {
         document.getElementById('refreshBtn').addEventListener('click', () => this.loadData());
         document.getElementById('retryBtn').addEventListener('click', () => this.loadData());
-        document.getElementById('saveWpSettings').addEventListener('click', () => this.saveWpSettings());
         document.getElementById('testWpConnection').addEventListener('click', () => this.testWpConnection());
         document.getElementById('disconnectWp').addEventListener('click', () => this.disconnectWp());
-        document.getElementById('toggleSettings').addEventListener('click', (e) => {
-          const form = document.getElementById('settingsForm');
+        document.getElementById('toggleWpSettings').addEventListener('click', (e) => {
+          const form = document.getElementById('wpSettingsForm');
           form.classList.toggle('hidden');
           e.target.textContent = form.classList.contains('hidden') ? 'Show' : 'Hide';
         });
@@ -206,36 +205,12 @@
           const config = await response.json();
           
           if (config.url) document.getElementById('wpUrl').value = config.url;
+          if (config.username) document.getElementById('wpUsername').value = config.username;
           
           this.wpConnected = config.configured;
           this.updateWpStatus();
         } catch (error) {
           console.error('Failed to load WP config:', error);
-        }
-      }
-
-      async saveWpSettings() {
-        const url = document.getElementById('wpUrl').value.trim();
-        const username = document.getElementById('wpUsername').value.trim();
-        const password = document.getElementById('wpPassword').value.trim();
-
-        if (!url || !username || !password) {
-          this.showToast('Please fill in all WordPress fields', 'error');
-          return;
-        }
-
-        try {
-          // Save config
-          await fetch('/api/wp-config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, username, password })
-          });
-
-          // Test connection
-          await this.testWpConnection();
-        } catch (error) {
-          this.showToast('Failed to save settings', 'error');
         }
       }
 
