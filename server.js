@@ -733,6 +733,10 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
   const clusterList = clusterKeywords.split(',').map(k => k.trim()).filter(k => k);
   const topClusters = clusterList.slice(0, 5); // Use top 5 cluster keywords
   
+  // SEO-Optimized Meta Description (150-160 characters, compelling, CTA)
+  // Format: [Service] in [Location] by [Doctor]. [Benefit]. [Call to action].
+  const metaDescription = `Get ${serviceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
+  
   // Short description - naturally include main keyword once
   const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert procedures with natural-looking results.`;
   
@@ -818,7 +822,7 @@ Incisions are strategically placed to minimize visibility. Scars fade over time.
     fullContent: fullContent,
     excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
     metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
-    metaDescription: `${serviceName} in ${location} by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
+    metaDescription: metaDescription,
     clusterKeywords: topClusters
   };
 }
@@ -1356,6 +1360,9 @@ app.post('/api/update-service-page', async (req, res) => {
       ]
     };
 
+    // Generate optimized meta description
+    const optimizedMetaDesc = `Get ${capitalizedKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
+
     // Update post/page with NEW slug (from main keyword)
     const postData = {
       title: pageTitle,
@@ -1364,10 +1371,10 @@ app.post('/api/update-service-page', async (req, res) => {
       slug: newSlug,
       meta: {
         _yoast_wpseo_title: `${capitalizedKeyword} Huntington Beach CA | Tran Plastic Surgery`,
-        _yoast_wpseo_metadesc: `${capitalizedKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
+        _yoast_wpseo_metadesc: optimizedMetaDesc,
         _yoast_wpseo_focuskw: focusKeyword,
         _yoast_wpseo_opengraph_title: `${capitalizedKeyword} Huntington Beach CA | Tran Plastic Surgery`,
-        _yoast_wpseo_opengraph_description: `${capitalizedKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results.`,
+        _yoast_wpseo_opengraph_description: optimizedMetaDesc,
         _yoast_wpseo_opengraph_image: featureImageUrl || '',
         _yoast_wpseo_schema: JSON.stringify(faqSchema)
       }
