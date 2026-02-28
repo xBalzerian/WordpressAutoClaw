@@ -1310,6 +1310,51 @@ app.post('/api/update-service-page', async (req, res) => {
   }
 });
 
+// Test WordPress connection
+app.get('/api/test-wp', async (req, res) => {
+  try {
+    if (!WP_CONFIG.url || !WP_CONFIG.username || !WP_CONFIG.password) {
+      return res.status(400).json({ 
+        connected: false, 
+        error: 'WordPress not configured',
+        config: {
+          url: !!WP_CONFIG.url,
+          username: !!WP_CONFIG.username,
+          password: !!WP_CONFIG.password
+        }
+      });
+    }
+
+    // Test connection by fetching pages
+    const response = await axios.get(
+      `${WP_CONFIG.url}/wp-json/wp/v2/pages?per_page=1`,
+      {
+        auth: {
+          username: WP_CONFIG.username,
+          password: WP_CONFIG.password
+        }
+      }
+    );
+
+    res.json({
+      connected: true,
+      url: WP_CONFIG.url,
+      pagesFound: response.data.length,
+      samplePage: response.data[0] ? {
+        id: response.data[0].id,
+        title: response.data[0].title.rendered,
+        slug: response.data[0].slug
+      } : null
+    });
+  } catch (error) {
+    res.status(500).json({
+      connected: false,
+      error: error.message,
+      details: error.response?.data
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
