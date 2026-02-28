@@ -12,8 +12,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Store tokens (in production, use a database)
+// Store tokens (load from env if available)
 let storedTokens = null;
+try {
+  if (process.env.GOOGLE_OAUTH_TOKENS) {
+    storedTokens = JSON.parse(process.env.GOOGLE_OAUTH_TOKENS);
+    console.log('Loaded tokens from env');
+  }
+} catch (e) {
+  console.error('Failed to load tokens from env:', e.message);
+}
 
 // Hardcoded config
 const CONFIG = {
@@ -248,7 +256,8 @@ app.get('/auth/google/callback', async (req, res) => {
   try {
     const tokens = await googleService.setCredentials(code);
     storedTokens = tokens;
-    res.send('Authentication successful! You can close this window and go back to ClawBot.');
+    console.log('Tokens received:', JSON.stringify(tokens));
+    res.send('Authentication successful! Tokens: ' + JSON.stringify(tokens) + '<br><br>Copy the tokens above and add to GOOGLE_OAUTH_TOKENS env var in Render.');
   } catch (error) {
     res.status(500).send('Authentication failed: ' + error.message);
   }
