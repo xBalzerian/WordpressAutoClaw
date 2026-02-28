@@ -1078,8 +1078,8 @@ app.post('/api/update-service-page', async (req, res) => {
   try {
     const { 
       title,
-      content,
       serviceUrl,
+      gdocUrl,
       focusKeyword,
       featureImageUrl,
       supportImage1Url,
@@ -1087,11 +1087,27 @@ app.post('/api/update-service-page', async (req, res) => {
       rowIndex
     } = req.body;
 
-    console.log('[WP] Extracted data:', { title, serviceUrl, focusKeyword, rowIndex });
+    console.log('[WP] Extracted data:', { title, serviceUrl, gdocUrl, focusKeyword, rowIndex });
 
     if (!WP_CONFIG.url || !WP_CONFIG.username || !WP_CONFIG.password) {
       console.log('[WP] WP not configured');
       return res.status(400).json({ error: 'WordPress not configured' });
+    }
+
+    // Fetch content from Google Doc
+    let content = '';
+    if (gdocUrl && storedTokens) {
+      console.log('[WP] Fetching content from GDoc:', gdocUrl);
+      googleService.setCredentialsFromTokens(storedTokens);
+      const docResult = await googleService.getGoogleDocContent(gdocUrl);
+      if (docResult.success) {
+        content = docResult.content;
+        console.log('[WP] GDoc content fetched, length:', content.length);
+      } else {
+        console.log('[WP] Failed to fetch GDoc content:', docResult.error);
+      }
+    } else {
+      console.log('[WP] No GDoc URL or tokens available');
     }
 
     // Extract CURRENT post/page ID from service URL (using existing slug)

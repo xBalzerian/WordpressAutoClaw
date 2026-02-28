@@ -137,6 +137,51 @@ class GoogleOAuthService {
       };
     }
   }
+
+  async getGoogleDocContent(docUrl) {
+    try {
+      // Extract document ID from URL
+      const match = docUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (!match) {
+        return { success: false, error: 'Invalid Google Doc URL' };
+      }
+      
+      const documentId = match[1];
+      console.log('Fetching document:', documentId);
+
+      // Get document content
+      const doc = await this.docs.documents.get({ documentId });
+      
+      // Extract text content
+      let content = '';
+      const body = doc.data.body;
+      
+      if (body && body.content) {
+        for (const element of body.content) {
+          if (element.paragraph) {
+            for (const paraElement of element.paragraph.elements) {
+              if (paraElement.textRun && paraElement.textRun.content) {
+                content += paraElement.textRun.content;
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        title: doc.data.title,
+        content: content,
+        docId: documentId
+      };
+    } catch (error) {
+      console.error('Get Google Doc error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 module.exports = GoogleOAuthService;

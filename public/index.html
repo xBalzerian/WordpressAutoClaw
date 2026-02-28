@@ -404,13 +404,13 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 title: keyword,
-                content: '', // We'll fetch from GDoc on server side
                 serviceUrl: serviceUrl,
+                gdocUrl: gdocUrl,
                 focusKeyword: keyword,
                 featureImageUrl: featureImage,
                 supportImage1Url: supportImage1,
                 supportImage2Url: supportImage2,
-                rowIndex: index + 2 // +2 because row 1 is header, spreadsheet is 1-indexed
+                rowIndex: index + 2
               })
             });
             
