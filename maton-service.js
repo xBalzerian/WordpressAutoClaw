@@ -1,12 +1,12 @@
 const axios = require('axios');
 
-const MATON_API_KEY = process.env.MATON_API_KEY || '';
-const MATON_CONNECTION_ID = process.env.MATON_CONNECTION_ID || '';
+// Hardcoded for testing - personal tool
+const MATON_API_KEY = 'qb0DPBxhmOTJFttKYjcu25ItSl9IaYNW0ek8Szx5AnjUmxx8coc4RJ-2FKbtpoR-aDslAyJoWCjsPhUfiZ_m8UzZk2U9Ysv0C84';
+const MATON_CONNECTION_ID = '239c2eb4-3f4f-468b-ad5b-1e838f534659';
 const MATON_BASE_URL = 'https://api.maton.ai/v1';
 
-console.log('Maton Service initialized:');
+console.log('Maton Service initialized (hardcoded):');
 console.log('API Key exists:', !!MATON_API_KEY);
-console.log('Connection ID exists:', !!MATON_CONNECTION_ID);
 console.log('Connection ID:', MATON_CONNECTION_ID);
 
 class MatonService {
