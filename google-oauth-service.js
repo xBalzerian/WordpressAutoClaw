@@ -53,6 +53,21 @@ class GoogleOAuthService {
 
       const documentId = createResponse.data.documentId;
 
+      // Share with your email immediately
+      try {
+        await this.drive.permissions.create({
+          fileId: documentId,
+          requestBody: {
+            role: 'writer',
+            type: 'user',
+            emailAddress: 'balzgaming77@gmail.com'
+          }
+        });
+        console.log('Document shared with balzgaming77@gmail.com');
+      } catch (shareError) {
+        console.log('Could not share document:', shareError.message);
+      }
+
       // Insert content
       await this.docs.documents.batchUpdate({
         documentId: documentId,
