@@ -796,6 +796,236 @@ app.post('/api/update-images', async (req, res) => {
   }
 });
 
+// Kie.ai config
+const KIE_CONFIG = {
+  API_KEY: process.env.KIE_API_KEY || '',
+  BASE_URL: 'https://api.kie.ai/api/v1',
+  MODEL: 'nano-banana-2',
+  CALLBACK_URL: process.env.KIE_CALLBACK_URL || 'https://wordpress-claw.onrender.com/api/kie-callback',
+  ASPECT_RATIO: '21:9',
+  RESOLUTION: '1K',
+  OUTPUT_FORMAT: 'jpg'
+};
+
+// Store pending Kie tasks
+const pendingKieTasks = new Map();
+
+// Generate images using Kie.ai
+app.post('/api/generate-images-kie', async (req, res) => {
+  try {
+    const { keyword, rowIndex } = req.body;
+    
+    if (!KIE_CONFIG.API_KEY) {
+      return res.status(400).json({ error: 'Kie API key not configured' });
+    }
+    
+    const serviceName = keyword;
+    const safeName = serviceName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    
+    // Generate 3 prompts
+    const prompts = [
+      {
+        prompt: `Professional medical illustration of ${serviceName} showing the transformation concept. Split-view design: left side shows problem area marked for correction, right side shows improved result. Clean modern medical textbook style, soft blue and white color scheme. Include small inset showing procedure area. Anatomical accuracy with clear layers visible. Educational and professional, helping patients understand the procedure's purpose at a glance.`,
+        type: 'feature'
+      },
+      {
+        prompt: `Educational infographic showing 4-step ${serviceName} procedure in vertical layout. Step 1: Anesthesia administration with patient positioned. Step 2: Surgeon making precise incision. Step 3: Correction/treatment being performed. Step 4: Suture closure. Each step in separate panel with numbered circles. Clean medical illustration style, soft colors, professional artwork. Include small icons for each step. High resolution educational diagram.`,
+        type: 'support-1'
+      },
+      {
+        prompt: `Before and after comparison of ${serviceName} results. Left side: Before showing the concern area. Right side: After showing improved, natural-looking result. Include small recovery timeline icons at bottom showing healing progression. Clean professional medical photography style, soft lighting, neutral background. Show realistic results with natural appearance. Patient satisfaction concept. High quality medical artwork.`,
+        type: 'support-2'
+      }
+    ];
+    
+    const taskIds = [];
+    
+    // Create 3 tasks
+    for (const { prompt, type } of prompts) {
+      try {
+        console.log(`[Kie] Creating task for ${type} image...`);
+        
+        const response = await axios.post(
+          `${KIE_CONFIG.BASE_URL}/jobs/createTask`,
+          {
+            model: KIE_CONFIG.MODEL,
+            callBackUrl: KIE_CONFIG.CALLBACK_URL,
+            input: {
+              prompt: prompt,
+              aspect_ratio: KIE_CONFIG.ASPECT_RATIO,
+              resolution: KIE_CONFIG.RESOLUTION,
+              output_format: KIE_CONFIG.OUTPUT_FORMAT,
+              google_search: false
+            }
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${KIE_CONFIG.API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 30000
+          }
+        );
+        
+        if (response.data && response.data.data && response.data.data.taskId) {
+          const taskId = response.data.data.taskId;
+          taskIds.push({ taskId, type, serviceName, rowIndex });
+          
+          // Store task info
+          pendingKieTasks.set(taskId, {
+            taskId,
+            type,
+            serviceName,
+            rowIndex,
+            status: 'pending',
+            createdAt: Date.now()
+          });
+          
+          console.log(`[Kie] Task created: ${taskId} for ${type}`);
+        }
+      } catch (err) {
+        console.error(`[Kie] Failed to create task for ${type}:`, err.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Created ${taskIds.length} image generation tasks. Images will be uploaded and spreadsheet updated when complete.`,
+      tasks: taskIds
+    });
+  } catch (error) {
+    console.error('[Kie] Generate images error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Kie.ai callback endpoint
+app.post('/api/kie-callback', async (req, res) => {
+  try {
+    const { code, data } = req.body;
+    
+    if (code !== 200 || !data || data.state !== 'success') {
+      console.error('[Kie Callback] Task failed:', req.body);
+      return res.json({ received: true });
+    }
+    
+    const taskId = data.taskId;
+    const taskInfo = pendingKieTasks.get(taskId);
+    
+    if (!taskInfo) {
+      console.log('[Kie Callback] Unknown task:', taskId);
+      return res.json({ received: true });
+    }
+    
+    console.log(`[Kie Callback] Task ${taskId} completed for ${taskInfo.type}`);
+    
+    // Parse result
+    let resultUrls = [];
+    try {
+      const resultJson = JSON.parse(data.resultJson);
+      resultUrls = resultJson.resultUrls || [];
+    } catch (e) {
+      console.error('[Kie Callback] Failed to parse result:', e);
+      return res.json({ received: true });
+    }
+    
+    if (resultUrls.length === 0) {
+      console.error('[Kie Callback] No result URLs');
+      return res.json({ received: true });
+    }
+    
+    const imageUrl = resultUrls[0];
+    
+    // Download image
+    console.log(`[Kie Callback] Downloading image from ${imageUrl}...`);
+    const imageResponse = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 60000
+    });
+    
+    const base64 = Buffer.from(imageResponse.data).toString('base64');
+    
+    // Upload to GitHub
+    if (CONFIG.GITHUB_TOKEN) {
+      const timestamp = Date.now();
+      const safeName = taskInfo.serviceName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      const filename = `${safeName}-${taskInfo.type}-${timestamp}.jpg`;
+      const folderPath = `images/${safeName}`;
+      
+      const githubResponse = await axios.put(
+        `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${folderPath}/${filename}`,
+        {
+          message: `Upload ${taskInfo.type} image for ${taskInfo.serviceName}`,
+          content: base64,
+          branch: CONFIG.GITHUB_BRANCH
+        },
+        {
+          headers: {
+            'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+      
+      const githubUrl = githubResponse.data.content.download_url;
+      console.log(`[Kie Callback] Uploaded to GitHub: ${githubUrl}`);
+      
+      // Store the URL in task info
+      taskInfo.githubUrl = githubUrl;
+      taskInfo.status = 'completed';
+      pendingKieTasks.set(taskId, taskInfo);
+      
+      // Check if all 3 images are done for this row
+      await checkAndUpdateSpreadsheet(taskInfo.rowIndex, taskInfo.serviceName);
+    }
+    
+    res.json({ received: true, processed: true });
+  } catch (error) {
+    console.error('[Kie Callback] Error:', error.message);
+    res.json({ received: true, error: error.message });
+  }
+});
+
+// Check if all images are done and update spreadsheet
+async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
+  try {
+    // Find all completed tasks for this service
+    const completedTasks = [];
+    for (const [taskId, task] of pendingKieTasks) {
+      if (task.serviceName === serviceName && task.status === 'completed' && task.rowIndex === rowIndex) {
+        completedTasks.push(task);
+      }
+    }
+    
+    // Need all 3 types
+    const hasFeature = completedTasks.find(t => t.type === 'feature');
+    const hasSupport1 = completedTasks.find(t => t.type === 'support-1');
+    const hasSupport2 = completedTasks.find(t => t.type === 'support-2');
+    
+    if (hasFeature && hasSupport1 && hasSupport2 && storedTokens) {
+      console.log(`[Kie] All 3 images ready for ${serviceName}, updating spreadsheet...`);
+      
+      googleService.setCredentialsFromTokens(storedTokens);
+      const spreadsheetId = process.env.SPREADSHEET_ID;
+      
+      if (spreadsheetId) {
+        await googleService.updateSpreadsheet(spreadsheetId, `G${rowIndex}`, [[hasFeature.githubUrl]]);
+        await googleService.updateSpreadsheet(spreadsheetId, `H${rowIndex}`, [[hasSupport1.githubUrl]]);
+        await googleService.updateSpreadsheet(spreadsheetId, `I${rowIndex}`, [[hasSupport2.githubUrl]]);
+        
+        console.log(`[Kie] Spreadsheet updated for row ${rowIndex}`);
+        
+        // Clean up tasks
+        for (const task of completedTasks) {
+          pendingKieTasks.delete(task.taskId);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Kie] Check and update error:', error.message);
+  }
+}
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 

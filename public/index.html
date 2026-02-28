@@ -473,10 +473,10 @@
         const row = this.data[index];
         const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
         
-        this.showToast(`Generating images for: ${keyword}`, 'info');
+        this.showToast(`Generating images for: ${keyword} (using Kie.ai)`, 'info');
         
         try {
-          const response = await fetch('/api/generate-images', {
+          const response = await fetch('/api/generate-images-kie', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -487,12 +487,11 @@
           
           const data = await response.json();
           if (data.success) {
-            this.showToast('Images generated and spreadsheet updated!', 'success');
-            this.loadData(); // Refresh to show new links
+            this.showToast(`${data.tasks.length} image tasks created. Will auto-update spreadsheet when complete.`, 'success');
           } else {
             this.showToast('Image generation failed: ' + (data.error || ''), 'error');
           }
-          console.log('Generated images:', data);
+          console.log('Kie tasks:', data);
         } catch (error) {
           this.showToast('Failed to generate images', 'error');
         }
