@@ -138,6 +138,81 @@ class GoogleOAuthService {
     }
   }
 
+  async updateGoogleDoc(documentId, content) {
+    try {
+      // Clear existing content and insert new content
+      const doc = await this.docs.documents.get({ documentId });
+      const endIndex = doc.data.body.content[doc.data.body.content.length - 1].endIndex || 2;
+      
+      // Delete existing content (except first character)
+      if (endIndex > 2) {
+        await this.docs.documents.batchUpdate({
+          documentId: documentId,
+          requestBody: {
+            requests: [
+              {
+                deleteContentRange: {
+                  range: {
+                    startIndex: 1,
+                    endIndex: endIndex - 1
+                  }
+                }
+              }
+            ]
+          }
+        });
+      }
+      
+      // Insert new content
+      await this.docs.documents.batchUpdate({
+        documentId: documentId,
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: {
+                  index: 1
+                },
+                text: content
+              }
+            }
+          ]
+        }
+      });
+      
+      return {
+        success: true,
+        message: 'Document updated successfully'
+      };
+    } catch (error) {
+      console.error('Update Google Doc error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async getSpreadsheetData(spreadsheetId, range) {
+    try {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: spreadsheetId,
+        range: range
+      });
+      
+      return {
+        success: true,
+        values: response.data.values
+      };
+    } catch (error) {
+      console.error('Get Spreadsheet error:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   async getGoogleDocContent(docUrl) {
     try {
       // Extract document ID from URL

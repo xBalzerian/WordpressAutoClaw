@@ -187,7 +187,7 @@ app.get('/api/sheet', async (req, res) => {
 // Generate content with Kimi + Create Google Doc + Update Sheet
 app.post('/api/generate-content', async (req, res) => {
   try {
-    const { keyword, serviceUrl, rowIndex, spreadsheetId } = req.body;
+    const { keyword, serviceUrl, rowIndex, spreadsheetId, clusterKeywords } = req.body;
     
     // Check if authenticated
     if (!storedTokens) {
@@ -199,23 +199,42 @@ app.post('/api/generate-content', async (req, res) => {
     // Set credentials
     googleService.setCredentialsFromTokens(storedTokens);
     
-    // Fetch existing content from website
-    let existingContent = '';
-    if (serviceUrl) {
+    // Check if GDoc already exists for this row
+    let existingDocUrl = null;
+    if (rowIndex && spreadsheetId) {
       try {
-        const response = await axios.get(serviceUrl, { timeout: 10000 });
-        existingContent = response.data;
+        const sheetData = await googleService.getSpreadsheetData(spreadsheetId, `D${rowIndex}`);
+        if (sheetData && sheetData.values && sheetData.values[0] && sheetData.values[0][0]) {
+          existingDocUrl = sheetData.values[0][0];
+          if (existingDocUrl.includes('docs.google.com')) {
+            console.log('Existing GDoc found:', existingDocUrl);
+          }
+        }
       } catch (e) {
-        console.log('Could not fetch existing content, generating fresh');
+        console.log('Could not check existing doc:', e.message);
       }
     }
     
     // Generate optimized content
-    const content = generateOptimizedContent(keyword, existingContent);
+    const content = generateOptimizedContent(keyword, clusterKeywords);
     
-    // Create Google Doc via OAuth
-    const docTitle = `${keyword} | Huntington Beach, CA`;
-    const docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
+    let docResult;
+    
+    if (existingDocUrl) {
+      // Update existing doc
+      const docId = existingDocUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+      if (docId) {
+        docResult = await googleService.updateGoogleDoc(docId, content.fullContent);
+        docResult.docUrl = existingDocUrl;
+        console.log('Updated existing Google Doc:', existingDocUrl);
+      }
+    }
+    
+    if (!docResult || !docResult.success) {
+      // Create new Google Doc via OAuth
+      const docTitle = `${keyword} | Huntington Beach, CA`;
+      docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
+    }
     
     if (!docResult.success) {
       return res.status(500).json({ error: 'Failed to create Google Doc: ' + docResult.error });
@@ -705,27 +724,30 @@ app.post('/api/wp-test', async (req, res) => {
 });
 
 // Generate optimized service content
-function generateOptimizedContent(keyword, existingContent) {
+function generateOptimizedContent(keyword, clusterKeywords = '') {
   const serviceName = keyword;
   const location = 'Huntington Beach, CA';
   const fullAddress = '20951 Brookhurst St Suite 107, Huntington Beach, CA 92646';
   
-  // Short description for after title
-  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert ${serviceName.toLowerCase()} procedures with natural-looking results.`;
+  // Parse cluster keywords for natural integration
+  const clusterList = clusterKeywords.split(',').map(k => k.trim()).filter(k => k);
+  const topClusters = clusterList.slice(0, 5); // Use top 5 cluster keywords
   
-  const fullContent = `# ${serviceName} | ${location}
-
-${shortDescription}
+  // Short description - naturally include main keyword once
+  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert procedures with natural-looking results.`;
+  
+  // Build content with SEO optimization
+  const fullContent = `${shortDescription}
 
 ## Overview
 
-${serviceName}, also known as **${serviceName.toLowerCase().replace('surgery', 'procedure')}**, is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals with natural-looking results. At Tran Plastic Surgery in **${location}**, board-certified surgeon Dr. Tuan A. Tran provides expert care for patients seeking ${serviceName.toLowerCase()}.
+${serviceName} is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals. At Tran Plastic Surgery in **${location}**, board-certified surgeon Dr. Tuan A. Tran provides expert care.
 
-This treatment is designed to address specific concerns and enhance your overall appearance. For people seeking this procedure in **${location}**, it can be a transformative experience that boosts confidence and self-esteem. Having ${serviceName.toLowerCase()} performed by a board-certified surgeon ensures the highest standards of safety and care.
+This treatment addresses specific concerns and enhances your overall appearance. Patients in **${location}** and surrounding areas choose this procedure for its transformative results and confidence-boosting effects.
 
 ## Who is a Good Candidate?
 
-A good candidate for ${serviceName.toLowerCase()} in **${location}** is a healthy adult with realistic expectations of what the procedure can help them achieve, along with an understanding of potential risks. Before proceeding with your surgery, your surgeon will go over an informed consent with you.
+Ideal candidates are healthy adults with realistic expectations. During your consultation at our **${location}** facility, Dr. Tran will discuss your goals and medical history.
 
 **You may be an ideal candidate if you:**
 - Are in good overall health
@@ -733,80 +755,71 @@ A good candidate for ${serviceName.toLowerCase()} in **${location}** is a health
 - Are committed to following pre and post-operative instructions
 - Do not smoke, or are willing to quit before and after surgery
 
-Before your consultation for ${serviceName.toLowerCase()} at our **${location}** facility, be sure to discuss in detail with Dr. Tran about any medications that you take regularly. He will advise whether or not you will need to stop taking any of those medications before your surgery.
-
 ## Procedure in Detail
 
-${serviceName} at Tran Plastic Surgery in **${location}** is typically performed as an outpatient procedure. The procedure time varies depending on the complexity and your specific needs.
+The procedure is typically performed as an outpatient surgery. Dr. Tran customizes each treatment based on your unique anatomy and goals.
 
-**The ${serviceName.toLowerCase()} procedure involves:**
+**The process involves:**
 
-1. **Anesthesia** – General anesthesia or local anesthesia with sedation is administered to ensure your comfort throughout the surgery.
-
-2. **Incision Placement** – Dr. Tran will make precise incisions based on the specific technique required for your case and the areas being treated.
-
-3. **Tissue Manipulation** – The underlying tissues will be carefully manipulated to achieve the desired result and create natural-looking contours.
-
-4. **Closure** – The incisions will be closed with sutures, and dressings are applied to protect the surgical sites.
-
-The procedure is customized to each patient's unique anatomy and goals. Dr. Tran will discuss the specific approach for your ${serviceName.toLowerCase()} during your consultation in **${location}**.
+1. **Anesthesia** – General or local anesthesia with sedation ensures comfort
+2. **Incision Placement** – Precise incisions based on your specific needs
+3. **Tissue Manipulation** – Underlying tissues are reshaped for natural contours
+4. **Closure** – Incisions are closed with sutures for optimal healing
 
 ## Recovery
 
-The healing time after ${serviceName.toLowerCase()} varies for each patient. Some pain and discomfort are expected after the procedure for several days following the surgery.
+Recovery varies by patient. Some discomfort is normal for several days following surgery.
 
-**Post-operative side effects include:**
-
-- Slight pain and discomfort
+**Common post-operative effects:**
+- Mild pain and discomfort
 - Swelling and bruising
-- Tightness in the treated area
+- Tightness in treated areas
 - Temporary numbness
 
-Icing and taking medications as prescribed by Dr. Tran will help minimize these side effects. For your most optimal recovery from ${serviceName.toLowerCase()}, please refer to the post-operative instructions given to you prior to the surgery.
-
-As always, you are more than welcome to reach out to our **${location}** office for any questions that arise during your recovery period. Generally, it is recommended that you rest for at least a few days and avoid vigorous activity. You will then follow-up with Dr. Tran after 5-7 days from your surgery for your post-op appointment.
+Following Dr. Tran's post-operative instructions ensures optimal healing. Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.
 
 ## Results
 
-Once the swelling has subsided, you should be able to immediately notice the results of ${serviceName.toLowerCase()}. The improvement should look natural and enhance your overall appearance. Any incision scars should fade over time, while you may opt to apply a silicone scar sheet to boost the healing outcome.
-
-Results from ${serviceName.toLowerCase()} are long-lasting when you maintain a stable weight and healthy lifestyle. Dr. Tran will provide guidance on maintaining your results during your follow-up visits at our **${location}** location.
+Once swelling subsides, you'll notice immediate improvements. Results are long-lasting with a stable weight and healthy lifestyle.
 
 ## Cost and Consultation
 
-The cost of ${serviceName.toLowerCase()} in **${location}** varies depending on the complexity of the procedure and your specific needs. Many major medical insurances in California may cover ${serviceName.toLowerCase()} depending on your specific case.
+Pricing varies based on procedure complexity. Many insurance plans may cover this procedure depending on your case.
 
-**Schedule your free consultation for ${serviceName.toLowerCase()}:**
+**Schedule your consultation:**
 - 📞 Call: (714) 839-8000
 - 🌐 Visit: www.tranplastic.com
 - 📍 Location: ${fullAddress}
 
-Dr. Tran and our team are ready to help you achieve your aesthetic goals with personalized care and expertise.
+## Service Areas
+
+While our primary office is in **Huntington Beach, CA**, we proudly serve patients throughout **Orange County** including Fountain Valley, Westminster, and surrounding communities.
 
 ---
 
 ## Frequently Asked Questions
 
-**Q: What is ${serviceName.toLowerCase()}?**
-A: ${serviceName} is a cosmetic surgical procedure designed to improve the appearance and contour of specific areas. It is performed by board-certified surgeon Dr. Tuan A. Tran at our ${location} facility.
+**What is ${serviceName}?**
+A cosmetic surgical procedure to improve body contour and appearance, performed by Dr. Tuan A. Tran at our Huntington Beach facility.
 
-**Q: How long does ${serviceName.toLowerCase()} take?**
-A: The procedure typically takes 1-3 hours depending on the complexity and extent of correction needed.
+**How long does the procedure take?**
+Typically 1-3 hours depending on complexity and extent of treatment.
 
-**Q: What is the recovery time for ${serviceName.toLowerCase()}?**
-A: Most patients return to light activities within 1-2 weeks, with full recovery taking 4-6 weeks.
+**What is the recovery time?**
+Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.
 
-**Q: Are the results of ${serviceName.toLowerCase()} permanent?**
-A: Results are long-lasting when you maintain a stable weight and healthy lifestyle.
+**Are results permanent?**
+Results are long-lasting when you maintain a stable weight and healthy lifestyle.
 
-**Q: Will there be visible scars after ${serviceName.toLowerCase()}?**
-A: Incisions are strategically placed to minimize visibility. Scars fade over time and can be further improved with scar treatments.`;
+**Will there be visible scars?**
+Incisions are strategically placed to minimize visibility. Scars fade over time.`;
 
   return {
     fullContent: fullContent,
     excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
     metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
-    metaDescription: `${serviceName} in ${location} by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`
+    metaDescription: `${serviceName} in ${location} by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
+    clusterKeywords: topClusters
   };
 }
 
