@@ -199,10 +199,15 @@ app.post('/api/generate-content', async (req, res) => {
     }
     
     // Update spreadsheet with GDoc link
-    if (spreadsheetId && rowIndex) {
+    const actualSpreadsheetId = spreadsheetId || process.env.SPREADSHEET_ID;
+    if (actualSpreadsheetId && rowIndex) {
+      // Find GDocs Link column letter
+      const gdocsColumn = 'E'; // Default to E, but we should detect it
+      const range = `${gdocsColumn}${rowIndex}`;
+      
       const sheetResult = await googleService.updateSpreadsheet(
-        spreadsheetId,
-        `E${rowIndex}`,
+        actualSpreadsheetId,
+        range,
         [[docResult.docUrl]]
       );
       
