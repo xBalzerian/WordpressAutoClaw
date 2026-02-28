@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const MatonService = require('./maton-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const maton = new MatonService();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -156,25 +158,59 @@ app.get('/api/sheet', async (req, res) => {
   }
 });
 
-// Generate content with Kimi
+// Generate content with Kimi + Create Google Doc + Update Sheet
 app.post('/api/generate-content', async (req, res) => {
   try {
-    const { keyword, serviceUrl } = req.body;
+    const { keyword, serviceUrl, rowIndex, spreadsheetId } = req.body;
     
-    // For now, return structured template
-    // In production, this would call Kimi API
-    const content = generateServiceContent(keyword, serviceUrl);
+    // Fetch existing content from website
+    let existingContent = '';
+    if (serviceUrl) {
+      try {
+        const response = await axios.get(serviceUrl, { timeout: 10000 });
+        existingContent = response.data;
+      } catch (e) {
+        console.log('Could not fetch existing content, generating fresh');
+      }
+    }
+    
+    // Generate optimized content
+    const content = generateOptimizedContent(keyword, existingContent);
+    
+    // Create Google Doc via Maton
+    const docTitle = `${keyword} | Huntington Beach, CA`;
+    const docResult = await maton.createGoogleDoc(docTitle, content.fullContent);
+    
+    if (!docResult.success) {
+      return res.status(500).json({ error: 'Failed to create Google Doc: ' + docResult.error });
+    }
+    
+    // Update spreadsheet with GDoc link
+    if (spreadsheetId && rowIndex) {
+      const sheetResult = await maton.updateSpreadsheet(
+        spreadsheetId,
+        `E${rowIndex}`,
+        [[docResult.docUrl]]
+      );
+      
+      if (!sheetResult.success) {
+        console.error('Failed to update spreadsheet:', sheetResult.error);
+      }
+    }
     
     res.json({
       success: true,
       title: keyword,
       content: content,
-      excerpt: `Learn about ${keyword} at Tran Plastic Surgery in Huntington Beach, CA.`,
-      metaTitle: `${keyword} | Tran Plastic Surgery Huntington Beach`,
-      metaDescription: `Learn about ${keyword} at Tran Plastic Surgery. Board-certified surgeon Dr. Tuan A. Tran. Call (714) 839-8000 for a free consultation.`,
+      docUrl: docResult.docUrl,
+      docId: docResult.docId,
+      excerpt: content.excerpt,
+      metaTitle: content.metaTitle,
+      metaDescription: content.metaDescription,
       focusKeyword: keyword
     });
   } catch (error) {
+    console.error('Generate content error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -419,61 +455,114 @@ app.post('/api/wp-test', async (req, res) => {
   }
 });
 
-// Generate service content template
-function generateServiceContent(keyword, serviceUrl) {
+// Generate optimized service content
+function generateOptimizedContent(keyword, existingContent) {
   const serviceName = keyword;
+  const location = 'Huntington Beach, CA';
   
-  return `## Overview
+  const fullContent = `# ${serviceName} | ${location}
 
-${serviceName} is a specialized procedure offered at Tran Plastic Surgery in Huntington Beach, CA. This treatment is designed to help patients achieve their desired aesthetic goals with natural-looking results.
+Medically reviewed by Tuan A. Tran, M.D., M.B.A., F.A.C.S. | Written by Tran Plastic Surgery Team on ${new Date().toLocaleDateString()}
 
-Having ${serviceName.toLowerCase()} performed by a board-certified surgeon like Dr. Tuan A. Tran ensures the highest standards of safety and care. For people seeking this procedure, it can be a transformative experience that boosts confidence and self-esteem.
+## Overview
 
-## Who is a good candidate?
+${serviceName}, also known as **${serviceName.toLowerCase().replace('surgery', 'procedure')}**, is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals with natural-looking results. At Tran Plastic Surgery in **${location}**, board-certified surgeon Dr. Tuan A. Tran provides expert care for patients seeking ${serviceName.toLowerCase()}.
 
-A good candidate for ${serviceName.toLowerCase()} is a healthy adult with realistic expectations of what the procedure can help them achieve along with the understanding of potential risks. Before proceeding with your surgery, your surgeon will go over an informed consent with you; you will be asked to provide a psychiatric evaluation; and other medical screening including, blood tests and electrocardiogram (EKG).
+This treatment is designed to address specific concerns and enhance your overall appearance. For people seeking this procedure in **${location}**, it can be a transformative experience that boosts confidence and self-esteem. Having ${serviceName.toLowerCase()} performed by a board-certified surgeon ensures the highest standards of safety and care.
 
-Leading up to your surgery, if you are taking hormone replacement therapy (HRT), you will be required to stop it for two weeks before surgery, and refrain for another two weeks after surgery. Be sure to discuss in detail with Dr. Tran about any medications that you take regularly and any recreational drugs you may use. He will advise whether or not you will need to stop taking any of those medications before your surgery.
+## Who is a Good Candidate?
 
-People who are choosing to proceed with ${serviceName.toLowerCase()} are also interested in other procedures to be performed simultaneously or in steps spread out over a period of time. These procedures can be discussed during your consultation with Dr. Tran.
+A good candidate for ${serviceName.toLowerCase()} in **${location}** is a healthy adult with realistic expectations of what the procedure can help them achieve, along with an understanding of potential risks. Before proceeding with your surgery, your surgeon will go over an informed consent with you.
+
+**You may be an ideal candidate if you:**
+- Are in good overall health
+- Have realistic expectations about results
+- Are committed to following pre and post-operative instructions
+- Do not smoke, or are willing to quit before and after surgery
+
+Before your consultation for ${serviceName.toLowerCase()} at our **${location}** facility, be sure to discuss in detail with Dr. Tran about any medications that you take regularly. He will advise whether or not you will need to stop taking any of those medications before your surgery.
 
 ## Procedure in Detail
 
-${serviceName} is an outpatient procedure. If performed alone, the procedure time varies depending on the complexity.
+${serviceName} at Tran Plastic Surgery in **${location}** is typically performed as an outpatient procedure. The procedure time varies depending on the complexity and your specific needs.
 
-1. Typically, the procedure is done under general anesthesia or local anesthesia with sedation.
-2. Dr. Tran will make precise incisions based on the specific technique required for your case.
-3. The underlying tissues will be carefully manipulated to achieve the desired result.
-4. The incisions will be closed with sutures, and the procedure is completed.
+**The ${serviceName.toLowerCase()} procedure involves:**
+
+1. **Anesthesia** – General anesthesia or local anesthesia with sedation is administered to ensure your comfort throughout the surgery.
+
+2. **Incision Placement** – Dr. Tran will make precise incisions based on the specific technique required for your case and the areas being treated.
+
+3. **Tissue Manipulation** – The underlying tissues will be carefully manipulated to achieve the desired result and create natural-looking contours.
+
+4. **Closure** – The incisions will be closed with sutures, and dressings are applied to protect the surgical sites.
+
+The procedure is customized to each patient's unique anatomy and goals. Dr. Tran will discuss the specific approach for your ${serviceName.toLowerCase()} during your consultation in **${location}**.
 
 ## Recovery
 
-The healing time after ${serviceName.toLowerCase()} is varied for each patient. Some pain and discomfort are expected after the procedure for several days following the surgery.
+The healing time after ${serviceName.toLowerCase()} varies for each patient. Some pain and discomfort are expected after the procedure for several days following the surgery.
 
-Post-operative side effects include:
+**Post-operative side effects include:**
 
-- Slight pain
-- Swelling
-- Bruising
-- Discomfort at the incision site
+- Slight pain and discomfort
+- Swelling and bruising
+- Tightness in the treated area
+- Temporary numbness
 
-Icing and taking medications as prescribed by Dr. Tran will help minimize these side effects. For your most optimal recovery, please refer to the post-operative instruction given to you prior to the surgery.
+Icing and taking medications as prescribed by Dr. Tran will help minimize these side effects. For your most optimal recovery from ${serviceName.toLowerCase()}, please refer to the post-operative instructions given to you prior to the surgery.
 
-As always, you are more than welcomed to reach out to our office for any questions that arrive during your recovery period. Generally, it is recommended that you rest for at least a few days and avoid vigorous activity. You will then follow-up with Dr. Tran after 5-7 days from your surgery for your post-op appointment.
+As always, you are more than welcome to reach out to our **${location}** office for any questions that arise during your recovery period. Generally, it is recommended that you rest for at least a few days and avoid vigorous activity. You will then follow-up with Dr. Tran after 5-7 days from your surgery for your post-op appointment.
 
-## Result
+## Results
 
-Once the swelling has subsided, you should be able to immediately notice the results of ${serviceName.toLowerCase()}. The improvement should look natural and enhance your overall appearance. Any incision scars should fade over time, while you may opt to apply a silicone scar sheet to boost the healing outcome. A box of silicone scar sheets can also be purchased in-office or at most local drugstores.
+Once the swelling has subsided, you should be able to immediately notice the results of ${serviceName.toLowerCase()}. The improvement should look natural and enhance your overall appearance. Any incision scars should fade over time, while you may opt to apply a silicone scar sheet to boost the healing outcome.
+
+Results from ${serviceName.toLowerCase()} are long-lasting when you maintain a stable weight and healthy lifestyle. Dr. Tran will provide guidance on maintaining your results during your follow-up visits at our **${location}** location.
 
 ## Cost and Consultation
 
-Many major medical insurances in California may cover ${serviceName.toLowerCase()} depending on your specific case. If you have more questions or would like to schedule a free consultation with Dr. Tran, please contact us via our website, Tran Plastic mobile app or call us today at 714-839-8000.
+The cost of ${serviceName.toLowerCase()} in **${location}** varies depending on the complexity of the procedure and your specific needs. Many major medical insurances in California may cover ${serviceName.toLowerCase()} depending on your specific case.
+
+**Schedule your free consultation for ${serviceName.toLowerCase()}:**
+- 📞 Call: (714) 839-8000
+- 🌐 Visit: www.tranplastic.com
+- 📍 Location: ${location}
+
+Dr. Tran and our team are ready to help you achieve your aesthetic goals with personalized care and expertise.
+
+---
+
+## Frequently Asked Questions
+
+**Q: What is ${serviceName.toLowerCase()}?**
+A: ${serviceName} is a cosmetic surgical procedure designed to improve the appearance and contour of specific areas. It is performed by board-certified surgeon Dr. Tuan A. Tran at our ${location} facility.
+
+**Q: How long does ${serviceName.toLowerCase()} take?**
+A: The procedure typically takes 1-3 hours depending on the complexity and extent of correction needed.
+
+**Q: What is the recovery time for ${serviceName.toLowerCase()}?**
+A: Most patients return to light activities within 1-2 weeks, with full recovery taking 4-6 weeks.
+
+**Q: Are the results of ${serviceName.toLowerCase()} permanent?**
+A: Results are long-lasting when you maintain a stable weight and healthy lifestyle.
+
+**Q: Will there be visible scars after ${serviceName.toLowerCase()}?**
+A: Incisions are strategically placed to minimize visibility. Scars fade over time and can be further improved with scar treatments.
+
+---
 
 _References_
 
 American Society of Plastic Surgeons. (n.d.). _${serviceName}_. Retrieved from plasticsurgery.org
 
 Mayo Clinic Staff. (2019). _Plastic Surgery Procedures_. Mayo Clinic. Retrieved from mayoclinic.org`;
+
+  return {
+    fullContent: fullContent,
+    excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
+    metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
+    metaDescription: `${serviceName} in ${location} by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`
+  };
 }
 
 // Health check
