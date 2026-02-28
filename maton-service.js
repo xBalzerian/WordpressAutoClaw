@@ -9,14 +9,13 @@ class MatonService {
     this.baseURL = MATON_BASE_URL;
   }
 
-  async createGoogleDoc(title, content) {
+  async createGoogleDoc(title, content, connectionId = '9e0f0cd7-3fda-45cc-9034-cc9f4e9aa1bc') {
     try {
       const response = await axios.post(
-        `${this.baseURL}/google/docs/create`,
+        `${this.baseURL}/connections/${connectionId}/docs/create`,
         {
           title: title,
-          content: content,
-          format: 'markdown'
+          content: content
         },
         {
           headers: {
@@ -29,23 +28,24 @@ class MatonService {
 
       return {
         success: true,
-        docId: response.data.docId,
-        docUrl: response.data.url,
+        docId: response.data.documentId || response.data.id,
+        docUrl: response.data.webViewLink || response.data.url,
         message: 'Google Doc created successfully'
       };
     } catch (error) {
       console.error('Maton create doc error:', error.message);
+      console.error('Error details:', error.response?.data);
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.response?.data?.error || error.message
       };
     }
   }
 
-  async updateSpreadsheet(spreadsheetId, range, values) {
+  async updateSpreadsheet(spreadsheetId, range, values, connectionId = '9e0f0cd7-3fda-45cc-9034-cc9f4e9aa1bc') {
     try {
       const response = await axios.post(
-        `${this.baseURL}/google/sheets/update`,
+        `${this.baseURL}/connections/${connectionId}/sheets/values`,
         {
           spreadsheetId: spreadsheetId,
           range: range,
@@ -67,41 +67,10 @@ class MatonService {
       };
     } catch (error) {
       console.error('Maton update sheet error:', error.message);
+      console.error('Error details:', error.response?.data);
       return {
         success: false,
-        error: error.response?.data?.message || error.message
-      };
-    }
-  }
-
-  async generateContent(prompt) {
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/ai/generate`,
-        {
-          prompt: prompt,
-          model: 'gpt-4',
-          max_tokens: 4000
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 120000
-        }
-      );
-
-      return {
-        success: true,
-        content: response.data.content,
-        message: 'Content generated successfully'
-      };
-    } catch (error) {
-      console.error('Maton generate error:', error.message);
-      return {
-        success: false,
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.response?.data?.error || error.message
       };
     }
   }
