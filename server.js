@@ -209,8 +209,8 @@ app.post('/api/generate-content', async (req, res) => {
     // Update spreadsheet with GDoc link
     const actualSpreadsheetId = spreadsheetId || process.env.SPREADSHEET_ID;
     if (actualSpreadsheetId && rowIndex) {
-      // Find GDocs Link column letter
-      const gdocsColumn = 'E'; // Default to E, but we should detect it
+      // Find GDocs Link column letter (column D)
+      const gdocsColumn = 'D';
       const range = `${gdocsColumn}${rowIndex}`;
       
       const sheetResult = await googleService.updateSpreadsheet(
@@ -281,8 +281,8 @@ app.post('/api/update-spreadsheet', async (req, res) => {
       return res.status(400).json({ error: 'SPREADSHEET_ID not configured' });
     }
     
-    // Update GDocs Link column (column E)
-    const range = `E${rowIndex}`;
+    // Update GDocs Link column (column D)
+    const range = `D${rowIndex}`;
     
     const sheetResult = await googleService.updateSpreadsheet(
       spreadsheetId,
