@@ -347,9 +347,9 @@
           const status = (row[this.columns.status] || '').toLowerCase();
           
           rowHTML += `<td class="actions">
-            <button class="btn btn-primary btn-small" onclick="app.processRow(${index})" ${this.processing ? 'disabled' : ''}>🚀 Auto</button>
-            <button class="btn btn-secondary btn-small" onclick="app.generateContent(${index})" ${this.processing ? 'disabled' : ''}>✍️ Content</button>
-            <button class="btn btn-warning btn-small" onclick="app.generateImages(${index})" ${this.processing ? 'disabled' : ''}>🎨 Images</button>
+            <button type="button" class="btn btn-primary btn-small" onclick="event.preventDefault(); app.processRow(${index})" ${this.processing ? 'disabled' : ''}>🚀 Auto</button>
+            <button type="button" class="btn btn-secondary btn-small" onclick="event.preventDefault(); app.generateContent(${index})" ${this.processing ? 'disabled' : ''}>✍️ Content</button>
+            <button type="button" class="btn btn-warning btn-small" onclick="event.preventDefault(); app.generateImages(${index})" ${this.processing ? 'disabled' : ''}>🎨 Images</button>
           </td>`;
           
           rowHTML += '</tr>';
@@ -401,6 +401,9 @@
           
           // Step 2: Update WordPress service page
           if (this.wpConnected) {
+            console.log('[Frontend] Calling update-service-page...');
+            console.log('[Frontend] Service URL:', serviceUrl);
+            
             const updateRes = await fetch('/api/update-service-page', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -416,7 +419,16 @@
               })
             });
             
+            console.log('[Frontend] Response status:', updateRes.status);
+            
+            if (!updateRes.ok) {
+              const errorText = await updateRes.text();
+              console.error('[Frontend] Error response:', errorText);
+              throw new Error(`Server error ${updateRes.status}: ${errorText}`);
+            }
+            
             const updateData = await updateRes.json();
+            console.log('[Frontend] Response data:', updateData);
             
             if (updateData.success) {
               this.updateProgress(100, 'Service page updated successfully!');
@@ -433,6 +445,7 @@
           this.closeModal();
           this.loadData(); // Refresh
         } catch (error) {
+          console.error('[Frontend] Process error:', error);
           this.updateProgress(0, 'Error: ' + error.message);
           this.showToast('Processing failed: ' + error.message, 'error');
           this.closeModal();
