@@ -4,9 +4,17 @@ const { google } = require('googleapis');
 let SERVICE_ACCOUNT = {};
 try {
   const base64Key = process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '';
+  console.log('GOOGLE_SERVICE_ACCOUNT_KEY length:', base64Key.length);
+  console.log('GOOGLE_SERVICE_ACCOUNT_KEY first 50 chars:', base64Key.substring(0, 50));
+  
   if (base64Key) {
     const decoded = Buffer.from(base64Key, 'base64').toString('utf8');
+    console.log('Decoded JSON first 100 chars:', decoded.substring(0, 100));
     SERVICE_ACCOUNT = JSON.parse(decoded);
+    console.log('Service account loaded successfully');
+    console.log('client_email:', SERVICE_ACCOUNT.client_email);
+  } else {
+    console.error('GOOGLE_SERVICE_ACCOUNT_KEY is empty');
   }
 } catch (e) {
   console.error('Failed to decode service account key:', e.message);
