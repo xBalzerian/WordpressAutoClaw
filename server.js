@@ -1070,6 +1070,172 @@ async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
   }
 }
 
+// Update WordPress Service Page
+app.post('/api/update-service-page', async (req, res) => {
+  try {
+    const { 
+      title,
+      content,
+      serviceUrl,
+      focusKeyword,
+      featureImageUrl,
+      supportImage1Url,
+      supportImage2Url
+    } = req.body;
+
+    if (!WP_CONFIG.url || !WP_CONFIG.username || !WP_CONFIG.password) {
+      return res.status(400).json({ error: 'WordPress not configured' });
+    }
+
+    // Extract post ID from service URL
+    let postId = null;
+    if (serviceUrl) {
+      const match = serviceUrl.match(/\/services\/([^\/]+)/);
+      if (match) {
+        const slug = match[1];
+        try {
+          const postResponse = await axios.get(
+            `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${slug}`,
+            {
+              auth: {
+                username: WP_CONFIG.username,
+                password: WP_CONFIG.password
+              }
+            }
+          );
+          if (postResponse.data && postResponse.data.length > 0) {
+            postId = postResponse.data[0].id;
+          }
+        } catch (e) {
+          console.log('Could not find existing post by slug');
+        }
+      }
+    }
+
+    if (!postId) {
+      return res.status(404).json({ error: 'Service page not found. Please check the Service URL.' });
+    }
+
+    // Prepare content with backlinks
+    let fullContent = content;
+    
+    // Add backlinks to Dr. Tran
+    fullContent += `\n\n---\n\n**About Dr. Tuan A. Tran**\n\nDr. Tuan A. Tran is a board-certified plastic surgeon serving Huntington Beach, CA and surrounding areas including [Orange County](https://tranplastic.com/), [Fountain Valley](https://tranplastic.com/), and [Westminster](https://tranplastic.com/). With extensive experience in ${focusKeyword} and other cosmetic procedures, Dr. Tran provides personalized care to help patients achieve their aesthetic goals.\n\nSchedule your consultation today at [Tran Plastic Surgery](https://tranplastic.com/) or call (714) 839-8000.`;
+
+    // Insert support images with proper SEO
+    if (supportImage1Url) {
+      fullContent = fullContent.replace(
+        '## Who is a Good Candidate?',
+        `![${focusKeyword} procedure steps - ${focusKeyword} in Huntington Beach CA](${supportImage1Url} "${focusKeyword} procedure steps")\n\n## Who is a Good Candidate?`
+      );
+    }
+    
+    if (supportImage2Url) {
+      fullContent = fullContent.replace(
+        '## Procedure in Detail',
+        `![${focusKeyword} results and recovery - ${focusKeyword} Huntington Beach](${supportImage2Url} "${focusKeyword} results and recovery")\n\n## Procedure in Detail`
+      );
+    }
+
+    // Update post
+    const postData = {
+      title: title,
+      content: fullContent,
+      status: 'publish',
+      meta: {
+        _yoast_wpseo_title: `${focusKeyword} Huntington Beach CA | Tran Plastic Surgery`,
+        _yoast_wpseo_metadesc: `${focusKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results. Call (714) 839-8000 for free consultation.`,
+        _yoast_wpseo_focuskw: focusKeyword,
+        _yoast_wpseo_opengraph_title: `${focusKeyword} Huntington Beach CA | Tran Plastic Surgery`,
+        _yoast_wpseo_opengraph_description: `${focusKeyword} in Huntington Beach, CA by Dr. Tuan A. Tran. Expert cosmetic surgery with natural results.`,
+        _yoast_wpseo_opengraph_image: featureImageUrl || ''
+      }
+    };
+
+    const response = await axios.post(
+      `${WP_CONFIG.url}/wp-json/wp/v2/posts/${postId}`,
+      postData,
+      {
+        auth: {
+          username: WP_CONFIG.username,
+          password: WP_CONFIG.password
+        }
+      }
+    );
+
+    // Upload and set featured image with SEO
+    if (featureImageUrl) {
+      try {
+        const imageResponse = await axios.get(featureImageUrl, {
+          responseType: 'arraybuffer',
+          timeout: 60000
+        });
+        
+        const safeKeyword = focusKeyword.replace(/\s+/g, '-').toLowerCase();
+        const filename = `${safeKeyword}-feature.jpg`;
+        
+        const mediaResponse = await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media`,
+          Buffer.from(imageResponse.data),
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            },
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Content-Disposition': `attachment; filename="${filename}"`
+            }
+          }
+        );
+
+        const mediaId = mediaResponse.data.id;
+        
+        // Update media with alt text and description
+        await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media/${mediaId}`,
+          {
+            alt_text: `${focusKeyword} - Featured image for ${focusKeyword} in Huntington Beach CA`,
+            description: `${focusKeyword} procedure performed by Dr. Tuan A. Tran at Tran Plastic Surgery in Huntington Beach, CA.`,
+            caption: `${focusKeyword} in Huntington Beach, CA`
+          },
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            }
+          }
+        );
+
+        // Set as featured image
+        await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/posts/${postId}`,
+          { featured_media: mediaId },
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            }
+          }
+        );
+      } catch (imageError) {
+        console.error('Featured image error:', imageError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      postId: postId,
+      url: response.data.link,
+      title: response.data.title.rendered,
+      message: 'Service page updated successfully'
+    });
+  } catch (error) {
+    console.error('Update service page error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
