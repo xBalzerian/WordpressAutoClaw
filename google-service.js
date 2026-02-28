@@ -19,18 +19,14 @@ try {
 
 class GoogleService {
   constructor() {
-    // Use domain-wide delegation with user impersonation
+    // Simple service account auth (no domain-wide delegation)
     this.auth = new google.auth.GoogleAuth({
       credentials: SERVICE_ACCOUNT,
       scopes: [
         'https://www.googleapis.com/auth/documents',
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/spreadsheets'
-      ],
-      // Impersonate the user who owns the spreadsheet
-      clientOptions: {
-        subject: process.env.GOOGLE_USER_EMAIL || 'balzgaming77@gmail.com'
-      }
+      ]
     });
     
     this.docs = google.docs({ version: 'v1', auth: this.auth });
