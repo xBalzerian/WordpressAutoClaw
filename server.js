@@ -552,10 +552,14 @@ app.post('/api/wp-test', async (req, res) => {
 function generateOptimizedContent(keyword, existingContent) {
   const serviceName = keyword;
   const location = 'Huntington Beach, CA';
+  const fullAddress = '20951 Brookhurst St Suite 107, Huntington Beach, CA 92646';
+  
+  // Short description for after title
+  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert ${serviceName.toLowerCase()} procedures with natural-looking results.`;
   
   const fullContent = `# ${serviceName} | ${location}
 
-Medically reviewed by Tuan A. Tran, M.D., M.B.A., F.A.C.S. | Written by Tran Plastic Surgery Team on ${new Date().toLocaleDateString()}
+${shortDescription}
 
 ## Overview
 
@@ -619,7 +623,7 @@ The cost of ${serviceName.toLowerCase()} in **${location}** varies depending on 
 **Schedule your free consultation for ${serviceName.toLowerCase()}:**
 - 📞 Call: (714) 839-8000
 - 🌐 Visit: www.tranplastic.com
-- 📍 Location: ${location}
+- 📍 Location: ${fullAddress}
 
 Dr. Tran and our team are ready to help you achieve your aesthetic goals with personalized care and expertise.
 
@@ -641,12 +645,6 @@ A: Results are long-lasting when you maintain a stable weight and healthy lifest
 
 **Q: Will there be visible scars after ${serviceName.toLowerCase()}?**
 A: Incisions are strategically placed to minimize visibility. Scars fade over time and can be further improved with scar treatments.
-
----
-
-_References_
-
-American Society of Plastic Surgeons. (n.d.). _${serviceName}_. Retrieved from plasticsurgery.org
 
 Mayo Clinic Staff. (2019). _Plastic Surgery Procedures_. Mayo Clinic. Retrieved from mayoclinic.org`;
 
