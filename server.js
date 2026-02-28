@@ -642,21 +642,34 @@ app.get('/api/wp-config', (req, res) => {
   });
 });
 
-// Test WordPress connection
+// Test WordPress connection with debug
 app.post('/api/wp-test', async (req, res) => {
   try {
     const { url, username, password } = req.body;
     
-    const response = await axios.get(`${url}/wp-json/wp/v2/users`, {
+    console.log('Testing WP connection to:', url);
+    console.log('Username:', username);
+    
+    // Clean the URL
+    let cleanUrl = url.replace(/\/wp-admin.*$/, '').replace(/\/wp-login.*$/, '').replace(/\/$/, '');
+    console.log('Clean URL:', cleanUrl);
+    
+    const response = await axios.get(`${cleanUrl}/wp-json/wp/v2/users`, {
       auth: { username, password },
       timeout: 10000
     });
 
-    res.json({ success: true, users: response.data.length });
+    res.json({ success: true, users: response.data.length, url: cleanUrl });
   } catch (error) {
+    console.error('WP Test Error:', error.message);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
     res.status(500).json({ 
       success: false, 
-      error: error.response?.data?.message || error.message 
+      error: error.message,
+      details: error.response?.data,
+      status: error.response?.status
     });
   }
 });
