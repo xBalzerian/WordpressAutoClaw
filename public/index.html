@@ -374,53 +374,59 @@
         
         const row = this.data[index];
         const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+        const serviceUrl = row[this.columns.serviceUrl] || '';
+        const gdocUrl = row[this.columns.gdocsLink] || '';
+        const featureImage = row[this.columns.featureImage] || '';
+        const supportImage1 = row[this.columns.supportImage1] || '';
+        const supportImage2 = row[this.columns.supportImage2] || '';
         
         this.showModal(`Processing: ${keyword}`);
-        this.updateProgress(10, 'Generating content...');
+        
+        // Check if we have content and images
+        if (!gdocUrl) {
+          this.updateProgress(0, 'Error: No GDoc content found. Generate content first.');
+          this.showToast('Please generate content first', 'error');
+          this.closeModal();
+          this.processing = false;
+          return;
+        }
+        
+        this.updateProgress(20, 'Fetching content from Google Doc...');
         
         try {
-          // Step 1: Generate content
-          const contentRes = await fetch('/api/generate-content', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              keyword: keyword,
-              serviceUrl: row[this.columns.serviceUrl] || ''
-            })
-          });
+          // Step 1: Fetch content from GDoc (or use existing)
+          // For now, we'll use the content we already have
           
-          const contentData = await contentRes.json();
-          this.updateProgress(30, 'Content generated! Generating images...');
+          this.updateProgress(50, 'Updating WordPress service page...');
           
-          // Step 2: Generate and upload images
-          this.updateProgress(50, 'Generating feature image...');
-          // Image generation would go here
-          
-          this.updateProgress(70, 'Publishing to WordPress...');
-          
-          // Step 3: Publish to WordPress
+          // Step 2: Update WordPress service page
           if (this.wpConnected) {
-            const publishRes = await fetch('/api/publish', {
+            const updateRes = await fetch('/api/update-service-page', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                title: contentData.title,
-                content: contentData.content,
-                excerpt: contentData.excerpt,
-                metaTitle: contentData.metaTitle,
-                metaDescription: contentData.metaDescription,
-                focusKeyword: contentData.focusKeyword
+                title: keyword,
+                content: '', // We'll fetch from GDoc on server side
+                serviceUrl: serviceUrl,
+                focusKeyword: keyword,
+                featureImageUrl: featureImage,
+                supportImage1Url: supportImage1,
+                supportImage2Url: supportImage2
               })
             });
             
-            const publishData = await publishRes.json();
+            const updateData = await updateRes.json();
             
-            if (publishData.success) {
-              this.updateProgress(100, 'Published successfully!');
-              this.showToast(`Published: ${publishData.url}`, 'success');
+            if (updateData.success) {
+              this.updateProgress(100, 'Service page updated successfully!');
+              this.showToast(`Updated: ${updateData.url}`, 'success');
+            } else {
+              this.updateProgress(0, 'Error: ' + (updateData.error || 'Update failed'));
+              this.showToast('Update failed: ' + (updateData.error || ''), 'error');
             }
           } else {
-            this.updateProgress(100, 'Content ready (WP not connected)');
+            this.updateProgress(0, 'Error: WordPress not connected');
+            this.showToast('WordPress not connected', 'error');
           }
           
           this.closeModal();
