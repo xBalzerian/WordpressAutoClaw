@@ -308,82 +308,7 @@ app.post('/api/update-spreadsheet', async (req, res) => {
   }
 });
 
-// Generate image
-app.post('/api/generate-image', async (req, res) => {
-  try {
-    const { prompt } = req.body;
-    
-    if (!CONFIG.LAOZHANG_API_KEY) {
-      return res.status(400).json({ error: 'Laozhang API key not configured' });
-    }
-    
-    const response = await axios.post(
-      `${CONFIG.LAOZHANG_BASE_URL}/images/generations`,
-      {
-        model: CONFIG.LAOZHANG_MODEL,
-        prompt: prompt,
-        n: 1,
-        size: '1200x630',
-        quality: 'high'
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${CONFIG.LAOZHANG_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 120000,
-        responseType: 'arraybuffer'
-      }
-    );
-
-    const base64 = Buffer.from(response.data).toString('base64');
-    res.json({ success: true, imageBase64: base64, mimeType: 'image/png' });
-  } catch (error) {
-    console.error('Image error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Upload image to GitHub
-app.post('/api/upload-image', async (req, res) => {
-  try {
-    const { imageBase64, filename, path: folderPath } = req.body;
-    
-    if (!CONFIG.GITHUB_TOKEN) {
-      return res.status(400).json({ error: 'GitHub token not configured' });
-    }
-    
-    const timestamp = Date.now();
-    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '-').toLowerCase();
-    const filePath = `${folderPath}/${timestamp}-${safeFilename}`;
-
-    const response = await axios.put(
-      `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${filePath}`,
-      {
-        message: `Upload image: ${safeFilename}`,
-        content: imageBase64,
-        branch: CONFIG.GITHUB_BRANCH
-      },
-      {
-        headers: {
-          'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      }
-    );
-
-    res.json({ 
-      success: true, 
-      url: response.data.content.download_url,
-      path: filePath
-    });
-  } catch (error) {
-    console.error('GitHub error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Generate images for a service
+// Generate images for a service (runs in background)
 app.post('/api/generate-images', async (req, res) => {
   try {
     const { keyword, rowIndex } = req.body;
@@ -392,8 +317,26 @@ app.post('/api/generate-images', async (req, res) => {
       return res.status(400).json({ error: 'Laozhang API key not configured' });
     }
     
+    // Start background process
+    generateImagesInBackground(keyword, rowIndex);
+    
+    res.json({
+      success: true,
+      message: 'Image generation started in background. Links will appear in spreadsheet columns G, H, I when complete.'
+    });
+  } catch (error) {
+    console.error('Generate images error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Background image generation
+async function generateImagesInBackground(keyword, rowIndex) {
+  try {
     const serviceName = keyword;
     const safeName = serviceName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    
+    console.log(`[Background] Starting image generation for: ${serviceName}`);
     
     // Generate 3 images
     const images = [];
@@ -402,7 +345,7 @@ app.post('/api/generate-images', async (req, res) => {
     const prompt1 = `Professional medical illustration of ${serviceName}, clean modern design, soft blue and white color scheme, anatomical accuracy, medical textbook style, high quality, 4K, suitable for medical website header`;
     
     // Image 2: Support Image 1 (Procedure)
-    const prompt2 = `Step-by-step ${serviceName} procedure diagram, medical illustration, numbered steps 1-5, clean infographic style, professional medical artwork, soft colors, educational diagram, high resolution`;
+    const prompt2 = `Step-by-step ${serviceName} procedure diagram, medical illustration, clean infographic style, professional medical artwork, soft colors, educational diagram, high resolution`;
     
     // Image 3: Support Image 2 (Results)
     const prompt3 = `${serviceName} recovery results, before and after medical illustration, professional medical photography style, clean background, patient satisfaction concept, high quality medical artwork`;
@@ -415,7 +358,7 @@ app.post('/api/generate-images', async (req, res) => {
     
     for (const { prompt, type } of prompts) {
       try {
-        console.log(`Generating ${type} image...`);
+        console.log(`[Background] Generating ${type} image...`);
         
         const response = await axios.post(
           `${CONFIG.LAOZHANG_BASE_URL}/images/generations`,
@@ -464,17 +407,10 @@ app.post('/api/generate-images', async (req, res) => {
             url: githubResponse.data.content.download_url,
             filename: filename
           });
-          console.log(`${type} image uploaded:`, githubResponse.data.content.download_url);
-        } else {
-          console.log('GitHub token not configured, skipping upload');
-          images.push({
-            type: type,
-            url: null,
-            base64: base64
-          });
+          console.log(`[Background] ${type} image uploaded:`, githubResponse.data.content.download_url);
         }
       } catch (imgError) {
-        console.error(`Failed to generate ${type} image:`, imgError.message);
+        console.error(`[Background] Failed to generate ${type} image:`, imgError.message);
         images.push({
           type: type,
           error: imgError.message
@@ -483,9 +419,9 @@ app.post('/api/generate-images', async (req, res) => {
     }
     
     // Update spreadsheet with image URLs
-    if (rowIndex && CONFIG.GITHUB_TOKEN) {
+    if (rowIndex && CONFIG.GITHUB_TOKEN && storedTokens) {
       const spreadsheetId = process.env.SPREADSHEET_ID;
-      if (spreadsheetId && storedTokens) {
+      if (spreadsheetId) {
         googleService.setCredentialsFromTokens(storedTokens);
         
         // Update columns G, H, I
@@ -493,22 +429,55 @@ app.post('/api/generate-images', async (req, res) => {
         const supportImage1 = images.find(img => img.type === 'support-1')?.url || '';
         const supportImage2 = images.find(img => img.type === 'support-2')?.url || '';
         
-        // Update G (Feature Image), H (Support 1), I (Support 2)
         await googleService.updateSpreadsheet(spreadsheetId, `G${rowIndex}`, [[featureImage]]);
         await googleService.updateSpreadsheet(spreadsheetId, `H${rowIndex}`, [[supportImage1]]);
         await googleService.updateSpreadsheet(spreadsheetId, `I${rowIndex}`, [[supportImage2]]);
         
-        console.log('Spreadsheet updated with image URLs');
+        console.log('[Background] Spreadsheet updated with image URLs');
       }
     }
     
-    res.json({
-      success: true,
-      images: images,
-      message: 'Images generated and uploaded'
+    console.log(`[Background] Image generation complete for: ${serviceName}`);
+  } catch (error) {
+    console.error('[Background] Image generation failed:', error.message);
+  }
+}
+
+// Upload image to GitHub
+app.post('/api/upload-image', async (req, res) => {
+  try {
+    const { imageBase64, filename, path: folderPath } = req.body;
+    
+    if (!CONFIG.GITHUB_TOKEN) {
+      return res.status(400).json({ error: 'GitHub token not configured' });
+    }
+    
+    const timestamp = Date.now();
+    const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '-').toLowerCase();
+    const filePath = `${folderPath}/${timestamp}-${safeFilename}`;
+
+    const response = await axios.put(
+      `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${filePath}`,
+      {
+        message: `Upload image: ${safeFilename}`,
+        content: imageBase64,
+        branch: CONFIG.GITHUB_BRANCH
+      },
+      {
+        headers: {
+          'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
+
+    res.json({ 
+      success: true, 
+      url: response.data.content.download_url,
+      path: filePath
     });
   } catch (error) {
-    console.error('Generate images error:', error);
+    console.error('GitHub error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -774,9 +743,7 @@ A: Most patients return to light activities within 1-2 weeks, with full recovery
 A: Results are long-lasting when you maintain a stable weight and healthy lifestyle.
 
 **Q: Will there be visible scars after ${serviceName.toLowerCase()}?**
-A: Incisions are strategically placed to minimize visibility. Scars fade over time and can be further improved with scar treatments.
-
-Mayo Clinic Staff. (2019). _Plastic Surgery Procedures_. Mayo Clinic. Retrieved from mayoclinic.org`;
+A: Incisions are strategically placed to minimize visibility. Scars fade over time and can be further improved with scar treatments.`;
 
   return {
     fullContent: fullContent,
