@@ -450,13 +450,20 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               keyword: keyword,
-              serviceUrl: row[this.columns.serviceUrl] || ''
+              serviceUrl: row[this.columns.serviceUrl] || '',
+              rowIndex: row._rowIndex,
+              spreadsheetId: null // Will use env var
             })
           });
           
           const data = await response.json();
-          this.showToast('Content generated! Ready to publish.', 'success');
+          if (data.success) {
+            this.showToast('Content generated and spreadsheet updated!', 'success');
+          } else {
+            this.showToast('Content generated but spreadsheet update failed: ' + (data.error || ''), 'error');
+          }
           console.log('Generated content:', data);
+          this.loadData(); // Refresh to show new link
         } catch (error) {
           this.showToast('Failed to generate content', 'error');
         }
