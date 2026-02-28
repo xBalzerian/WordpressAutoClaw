@@ -383,6 +383,136 @@ app.post('/api/upload-image', async (req, res) => {
   }
 });
 
+// Generate images for a service
+app.post('/api/generate-images', async (req, res) => {
+  try {
+    const { keyword, rowIndex } = req.body;
+    
+    if (!CONFIG.LAOZHANG_API_KEY) {
+      return res.status(400).json({ error: 'Laozhang API key not configured' });
+    }
+    
+    const serviceName = keyword;
+    const safeName = serviceName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    
+    // Generate 3 images
+    const images = [];
+    
+    // Image 1: Feature Image
+    const prompt1 = `Professional medical illustration of ${serviceName}, clean modern design, soft blue and white color scheme, anatomical accuracy, medical textbook style, high quality, 4K, suitable for medical website header`;
+    
+    // Image 2: Support Image 1 (Procedure)
+    const prompt2 = `Step-by-step ${serviceName} procedure diagram, medical illustration, numbered steps 1-5, clean infographic style, professional medical artwork, soft colors, educational diagram, high resolution`;
+    
+    // Image 3: Support Image 2 (Results)
+    const prompt3 = `${serviceName} recovery results, before and after medical illustration, professional medical photography style, clean background, patient satisfaction concept, high quality medical artwork`;
+    
+    const prompts = [
+      { prompt: prompt1, type: 'feature' },
+      { prompt: prompt2, type: 'support-1' },
+      { prompt: prompt3, type: 'support-2' }
+    ];
+    
+    for (const { prompt, type } of prompts) {
+      try {
+        console.log(`Generating ${type} image...`);
+        
+        const response = await axios.post(
+          `${CONFIG.LAOZHANG_BASE_URL}/images/generations`,
+          {
+            model: CONFIG.LAOZHANG_MODEL,
+            prompt: prompt,
+            n: 1,
+            size: '1200x630',
+            quality: 'high'
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${CONFIG.LAOZHANG_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 120000,
+            responseType: 'arraybuffer'
+          }
+        );
+        
+        const base64 = Buffer.from(response.data).toString('base64');
+        
+        // Upload to GitHub
+        const timestamp = Date.now();
+        const filename = `${safeName}-${type}-${timestamp}.png`;
+        const folderPath = `images/${safeName}`;
+        
+        if (CONFIG.GITHUB_TOKEN) {
+          const githubResponse = await axios.put(
+            `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/contents/${folderPath}/${filename}`,
+            {
+              message: `Upload ${type} image for ${serviceName}`,
+              content: base64,
+              branch: CONFIG.GITHUB_BRANCH
+            },
+            {
+              headers: {
+                'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            }
+          );
+          
+          images.push({
+            type: type,
+            url: githubResponse.data.content.download_url,
+            filename: filename
+          });
+          console.log(`${type} image uploaded:`, githubResponse.data.content.download_url);
+        } else {
+          console.log('GitHub token not configured, skipping upload');
+          images.push({
+            type: type,
+            url: null,
+            base64: base64
+          });
+        }
+      } catch (imgError) {
+        console.error(`Failed to generate ${type} image:`, imgError.message);
+        images.push({
+          type: type,
+          error: imgError.message
+        });
+      }
+    }
+    
+    // Update spreadsheet with image URLs
+    if (rowIndex && CONFIG.GITHUB_TOKEN) {
+      const spreadsheetId = process.env.SPREADSHEET_ID;
+      if (spreadsheetId && storedTokens) {
+        googleService.setCredentialsFromTokens(storedTokens);
+        
+        // Update columns G, H, I
+        const featureImage = images.find(img => img.type === 'feature')?.url || '';
+        const supportImage1 = images.find(img => img.type === 'support-1')?.url || '';
+        const supportImage2 = images.find(img => img.type === 'support-2')?.url || '';
+        
+        // Update G (Feature Image), H (Support 1), I (Support 2)
+        await googleService.updateSpreadsheet(spreadsheetId, `G${rowIndex}`, [[featureImage]]);
+        await googleService.updateSpreadsheet(spreadsheetId, `H${rowIndex}`, [[supportImage1]]);
+        await googleService.updateSpreadsheet(spreadsheetId, `I${rowIndex}`, [[supportImage2]]);
+        
+        console.log('Spreadsheet updated with image URLs');
+      }
+    }
+    
+    res.json({
+      success: true,
+      images: images,
+      message: 'Images generated and uploaded'
+    });
+  } catch (error) {
+    console.error('Generate images error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Publish to WordPress
 app.post('/api/publish', async (req, res) => {
   try {

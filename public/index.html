@@ -474,7 +474,28 @@
         const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
         
         this.showToast(`Generating images for: ${keyword}`, 'info');
-        // Image generation implementation
+        
+        try {
+          const response = await fetch('/api/generate-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              keyword: keyword,
+              rowIndex: row._rowIndex
+            })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            this.showToast('Images generated and spreadsheet updated!', 'success');
+            this.loadData(); // Refresh to show new links
+          } else {
+            this.showToast('Image generation failed: ' + (data.error || ''), 'error');
+          }
+          console.log('Generated images:', data);
+        } catch (error) {
+          this.showToast('Failed to generate images', 'error');
+        }
       }
 
       updateStats() {
