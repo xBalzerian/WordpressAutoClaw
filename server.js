@@ -374,12 +374,25 @@ async function generateImagesInBackground(keyword, rowIndex) {
               'Authorization': `Bearer ${CONFIG.LAOZHANG_API_KEY}`,
               'Content-Type': 'application/json'
             },
-            timeout: 120000,
-            responseType: 'arraybuffer'
+            timeout: 120000
           }
         );
         
-        const base64 = Buffer.from(response.data).toString('base64');
+        // Laozhang API returns JSON with base64 data
+        let base64;
+        if (response.data && response.data.data && response.data.data[0] && response.data.data[0].b64_json) {
+          // OpenAI/Laozhang format
+          base64 = response.data.data[0].b64_json;
+        } else if (response.data && response.data.b64_json) {
+          base64 = response.data.b64_json;
+        } else if (typeof response.data === 'string') {
+          base64 = response.data;
+        } else {
+          console.error('[Background] Unexpected response format:', response.data);
+          throw new Error('Unexpected API response format');
+        }
+        
+        console.log(`[Background] Got base64 data, length: ${base64.length}`);
         
         // Upload to GitHub
         const timestamp = Date.now();
