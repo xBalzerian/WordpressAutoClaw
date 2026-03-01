@@ -740,8 +740,13 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
   // Short description - naturally include main keyword once
   const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert procedures with natural-looking results.`;
   
+  // H1 for GDoc content (will be removed for WordPress)
+  const h1Title = `# ${serviceName} | ${location}`;
+  
   // Build content with SEO optimization
-  const fullContent = `${shortDescription}
+  const fullContent = `${h1Title}
+
+${shortDescription}
 
 ## Overview
 
