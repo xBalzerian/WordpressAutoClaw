@@ -904,6 +904,32 @@ app.post('/api/generate-images-kie', async (req, res) => {
     const serviceName = keyword;
     const safeName = serviceName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
     
+    // Check for existing images in spreadsheet first
+    let existingImages = { feature: null, 'support-1': null, 'support-2': null };
+    try {
+      const sheetResponse = await axios.get(
+        `${req.protocol}://${req.get('host')}/api/sheet`,
+        { timeout: 10000 }
+      );
+      const row = sheetResponse.data.data.find(r => r._rowIndex === rowIndex);
+      if (row) {
+        if (row['Feature Image'] && row['Feature Image'].includes('githubusercontent')) {
+          existingImages.feature = row['Feature Image'];
+          console.log(`[Kie] Found existing feature image for row ${rowIndex}`);
+        }
+        if (row['Support Image 1'] && row['Support Image 1'].includes('githubusercontent')) {
+          existingImages['support-1'] = row['Support Image 1'];
+          console.log(`[Kie] Found existing support-1 image for row ${rowIndex}`);
+        }
+        if (row['Support Image 2'] && row['Support Image 2'].includes('githubusercontent')) {
+          existingImages['support-2'] = row['Support Image 2'];
+          console.log(`[Kie] Found existing support-2 image for row ${rowIndex}`);
+        }
+      }
+    } catch (e) {
+      console.log('[Kie] Could not check existing images:', e.message);
+    }
+    
     // Generate 3 prompts
     const prompts = [
       {
@@ -921,9 +947,17 @@ app.post('/api/generate-images-kie', async (req, res) => {
     ];
     
     const taskIds = [];
+    const skipped = [];
     
-    // Create 3 tasks
+    // Create tasks only for missing images
     for (const { prompt, type } of prompts) {
+      // Skip if image already exists
+      if (existingImages[type]) {
+        console.log(`[Kie] Skipping ${type} - already exists`);
+        skipped.push({ type, url: existingImages[type] });
+        continue;
+      }
+      
       try {
         console.log(`[Kie] Creating task for ${type} image...`);
         
@@ -972,8 +1006,10 @@ app.post('/api/generate-images-kie', async (req, res) => {
     
     res.json({
       success: true,
-      message: `Created ${taskIds.length} image generation tasks. Images will be uploaded and spreadsheet updated when complete.`,
-      tasks: taskIds
+      message: `Created ${taskIds.length} image generation tasks. ${skipped.length} images already exist.`,
+      tasks: taskIds,
+      skipped: skipped,
+      total: taskIds.length + skipped.length
     });
   } catch (error) {
     console.error('[Kie] Generate images error:', error);
@@ -1057,19 +1093,68 @@ app.post('/api/kie-callback', async (req, res) => {
       taskInfo.status = 'completed';
       pendingKieTasks.set(taskId, taskInfo);
       
-      // Check if all 3 images are done for this row
-      await checkAndUpdateSpreadsheet(taskInfo.rowIndex, taskInfo.serviceName);
+      // Update spreadsheet immediately for this image
+      await updateSpreadsheetWithImage(taskInfo.rowIndex, taskInfo.type, githubUrl);
+      
+      // Check if all 3 images are done for cleanup
+      await checkAndCleanupTasks(taskInfo.rowIndex, taskInfo.serviceName);
     }
     
     res.json({ received: true, processed: true });
   } catch (error) {
     console.error('[Kie Callback] Error:', error.message);
+    // Mark task as failed so it can be retried
+    if (taskInfo) {
+      taskInfo.status = 'failed';
+      taskInfo.error = error.message;
+      pendingKieTasks.set(taskId, taskInfo);
+    }
     res.json({ received: true, error: error.message });
   }
 });
 
-// Check if all images are done and update spreadsheet
-async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
+// Update spreadsheet immediately when an image is ready
+async function updateSpreadsheetWithImage(rowIndex, imageType, githubUrl) {
+  try {
+    if (!storedTokens) {
+      console.log('[Kie] No tokens available for spreadsheet update');
+      return;
+    }
+    
+    googleService.setCredentialsFromTokens(storedTokens);
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    
+    if (!spreadsheetId) {
+      console.log('[Kie] No spreadsheet ID configured');
+      return;
+    }
+    
+    // Determine column based on image type
+    let column;
+    switch(imageType) {
+      case 'feature':
+        column = 'G';
+        break;
+      case 'support-1':
+        column = 'H';
+        break;
+      case 'support-2':
+        column = 'I';
+        break;
+      default:
+        console.log(`[Kie] Unknown image type: ${imageType}`);
+        return;
+    }
+    
+    await googleService.updateSpreadsheet(spreadsheetId, `${column}${rowIndex}`, [[githubUrl]]);
+    console.log(`[Kie] Updated spreadsheet ${column}${rowIndex} with ${imageType} image`);
+  } catch (error) {
+    console.error(`[Kie] Failed to update spreadsheet for ${imageType}:`, error.message);
+  }
+}
+
+// Check if all images are done and cleanup tasks
+async function checkAndCleanupTasks(rowIndex, serviceName) {
   try {
     // Find all completed tasks for this service
     const completedTasks = [];
@@ -1079,32 +1164,21 @@ async function checkAndUpdateSpreadsheet(rowIndex, serviceName) {
       }
     }
     
-    // Need all 3 types
+    // Need all 3 types to cleanup
     const hasFeature = completedTasks.find(t => t.type === 'feature');
     const hasSupport1 = completedTasks.find(t => t.type === 'support-1');
     const hasSupport2 = completedTasks.find(t => t.type === 'support-2');
     
-    if (hasFeature && hasSupport1 && hasSupport2 && storedTokens) {
-      console.log(`[Kie] All 3 images ready for ${serviceName}, updating spreadsheet...`);
+    if (hasFeature && hasSupport1 && hasSupport2) {
+      console.log(`[Kie] All 3 images completed for ${serviceName}, cleaning up tasks...`);
       
-      googleService.setCredentialsFromTokens(storedTokens);
-      const spreadsheetId = process.env.SPREADSHEET_ID;
-      
-      if (spreadsheetId) {
-        await googleService.updateSpreadsheet(spreadsheetId, `G${rowIndex}`, [[hasFeature.githubUrl]]);
-        await googleService.updateSpreadsheet(spreadsheetId, `H${rowIndex}`, [[hasSupport1.githubUrl]]);
-        await googleService.updateSpreadsheet(spreadsheetId, `I${rowIndex}`, [[hasSupport2.githubUrl]]);
-        
-        console.log(`[Kie] Spreadsheet updated for row ${rowIndex}`);
-        
-        // Clean up tasks
-        for (const task of completedTasks) {
-          pendingKieTasks.delete(task.taskId);
-        }
+      // Clean up tasks
+      for (const task of completedTasks) {
+        pendingKieTasks.delete(task.taskId);
       }
     }
   } catch (error) {
-    console.error('[Kie] Check and update error:', error.message);
+    console.error('[Kie] Cleanup error:', error.message);
   }
 }
 
