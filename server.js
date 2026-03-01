@@ -876,6 +876,22 @@ const KIE_CONFIG = {
 // Store pending Kie tasks
 const pendingKieTasks = new Map();
 
+// Check pending tasks status (for debugging)
+app.get('/api/kie-status', (req, res) => {
+  const tasks = [];
+  for (const [taskId, task] of pendingKieTasks) {
+    tasks.push({
+      taskId,
+      ...task,
+      age: Date.now() - task.createdAt
+    });
+  }
+  res.json({
+    pending: tasks.length,
+    tasks: tasks
+  });
+});
+
 // Generate images using Kie.ai
 app.post('/api/generate-images-kie', async (req, res) => {
   try {
