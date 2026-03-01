@@ -741,87 +741,95 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
   const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Dr. Tuan A. Tran at Tran Plastic Surgery offers expert procedures with natural-looking results.`;
   
   // H1 for GDoc content (will be removed for WordPress)
-  const h1Title = `# ${serviceName} | ${location}`;
+  const h1Title = `<h1>${serviceName} | ${location}</h1>`;
   
-  // Build content with SEO optimization
+  // Build content with SEO optimization - using HTML format
   const fullContent = `${h1Title}
 
-${shortDescription}
+<p>${shortDescription}</p>
 
-## Overview
+<h2>Overview</h2>
 
-${serviceName} is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals. At Tran Plastic Surgery in **${location}**, board-certified surgeon Dr. Tuan A. Tran provides expert care.
+<p>${serviceName} is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals. At Tran Plastic Surgery in <strong>${location}</strong>, board-certified surgeon Dr. Tuan A. Tran provides expert care.</p>
 
-This treatment addresses specific concerns and enhances your overall appearance. Patients in **${location}** and surrounding areas choose this procedure for its transformative results and confidence-boosting effects.
+<p>This treatment addresses specific concerns and enhances your overall appearance. Patients in <strong>${location}</strong> and surrounding areas choose this procedure for its transformative results and confidence-boosting effects.</p>
 
-## Who is a Good Candidate?
+<h2>Who is a Good Candidate?</h2>
 
-Ideal candidates are healthy adults with realistic expectations. During your consultation at our **${location}** facility, Dr. Tran will discuss your goals and medical history.
+<p>Ideal candidates are healthy adults with realistic expectations. During your consultation at our <strong>${location}</strong> facility, Dr. Tran will discuss your goals and medical history.</p>
 
-**You may be an ideal candidate if you:**
-- Are in good overall health
-- Have realistic expectations about results
-- Are committed to following pre and post-operative instructions
-- Do not smoke, or are willing to quit before and after surgery
+<p><strong>You may be an ideal candidate if you:</strong></p>
+<ul>
+<li>Are in good overall health</li>
+<li>Have realistic expectations about results</li>
+<li>Are committed to following pre and post-operative instructions</li>
+<li>Do not smoke, or are willing to quit before and after surgery</li>
+</ul>
 
-## Procedure in Detail
+<h2>Procedure in Detail</h2>
 
-The procedure is typically performed as an outpatient surgery. Dr. Tran customizes each treatment based on your unique anatomy and goals.
+<p>The procedure is typically performed as an outpatient surgery. Dr. Tran customizes each treatment based on your unique anatomy and goals.</p>
 
-**The process involves:**
+<p><strong>The process involves:</strong></p>
 
-1. **Anesthesia** – General or local anesthesia with sedation ensures comfort
-2. **Incision Placement** – Precise incisions based on your specific needs
-3. **Tissue Manipulation** – Underlying tissues are reshaped for natural contours
-4. **Closure** – Incisions are closed with sutures for optimal healing
+<ol>
+<li><strong>Anesthesia</strong> – General or local anesthesia with sedation ensures comfort</li>
+<li><strong>Incision Placement</strong> – Precise incisions based on your specific needs</li>
+<li><strong>Tissue Manipulation</strong> – Underlying tissues are reshaped for natural contours</li>
+<li><strong>Closure</strong> – Incisions are closed with sutures for optimal healing</li>
+</ol>
 
-## Recovery
+<h2>Recovery</h2>
 
-Recovery varies by patient. Some discomfort is normal for several days following surgery.
+<p>Recovery varies by patient. Some discomfort is normal for several days following surgery.</p>
 
-**Common post-operative effects:**
-- Mild pain and discomfort
-- Swelling and bruising
-- Tightness in treated areas
-- Temporary numbness
+<p><strong>Common post-operative effects:</strong></p>
+<ul>
+<li>Mild pain and discomfort</li>
+<li>Swelling and bruising</li>
+<li>Tightness in treated areas</li>
+<li>Temporary numbness</li>
+</ul>
 
-Following Dr. Tran's post-operative instructions ensures optimal healing. Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.
+<p>Following Dr. Tran's post-operative instructions ensures optimal healing. Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>
 
-## Results
+<h2>Results</h2>
 
-Once swelling subsides, you'll notice immediate improvements. Results are long-lasting with a stable weight and healthy lifestyle.
+<p>Once swelling subsides, you'll notice immediate improvements. Results are long-lasting with a stable weight and healthy lifestyle.</p>
 
-## Cost and Consultation
+<h2>Cost and Consultation</h2>
 
-Pricing varies based on procedure complexity. Many insurance plans may cover this procedure depending on your case.
+<p>Pricing varies based on procedure complexity. Many insurance plans may cover this procedure depending on your case.</p>
 
-**Schedule your consultation:**
-- 📞 Call: (714) 839-8000
-- 🌐 Visit: www.tranplastic.com
-- 📍 Location: ${fullAddress}
+<p><strong>Schedule your consultation:</strong></p>
+<ul>
+<li>📞 Call: (714) 839-8000</li>
+<li>🌐 Visit: www.tranplastic.com</li>
+<li>📍 Location: ${fullAddress}</li>
+</ul>
 
-## Service Areas
+<h2>Service Areas</h2>
 
-While our primary office is in **Huntington Beach, CA**, we proudly serve patients throughout **Orange County** including Fountain Valley, Westminster, and surrounding communities.
+<p>While our primary office is in <strong>Huntington Beach, CA</strong>, we proudly serve patients throughout <strong>Orange County</strong> including Fountain Valley, Westminster, and surrounding communities.</p>
 
----
+<hr>
 
-## Frequently Asked Questions
+<h2>Frequently Asked Questions</h2>
 
-**What is ${serviceName}?**
-A cosmetic surgical procedure to improve body contour and appearance, performed by Dr. Tuan A. Tran at our Huntington Beach facility.
+<p><strong>What is ${serviceName}?</strong><br>
+A cosmetic surgical procedure to improve body contour and appearance, performed by Dr. Tuan A. Tran at our Huntington Beach facility.</p>
 
-**How long does the procedure take?**
-Typically 1-3 hours depending on complexity and extent of treatment.
+<p><strong>How long does the procedure take?</strong><br>
+Typically 1-3 hours depending on complexity and extent of treatment.</p>
 
-**What is the recovery time?**
-Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.
+<p><strong>What is the recovery time?</strong><br>
+Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>
 
-**Are results permanent?**
-Results are long-lasting when you maintain a stable weight and healthy lifestyle.
+<p><strong>Are results permanent?</strong><br>
+Results are long-lasting when you maintain a stable weight and healthy lifestyle.</p>
 
-**Will there be visible scars?**
-Incisions are strategically placed to minimize visibility. Scars fade over time.`;
+<p><strong>Will there be visible scars?</strong><br>
+Incisions are strategically placed to minimize visibility. Scars fade over time.</p>`;
 
   return {
     fullContent: fullContent,
@@ -1381,19 +1389,12 @@ app.post('/api/update-service-page', async (req, res) => {
     // Prepare content with proper HTML structure (NO H1 - that's the title)
     let fullContent = content;
     
-    // Remove any existing H1 from content if present
-    fullContent = fullContent.replace(/^#\s+.*\n/, '');
+    // Remove any existing H1 from content if present (content is already HTML)
+    fullContent = fullContent.replace(/<h1>.*?<\/h1>\s*/i, '');
     
-    // Convert markdown to HTML for WordPress
-    // Replace ## with h2, ### with h3, etc.
-    fullContent = fullContent
-      .replace(/##\s+(.*)/g, '<h2>$1</h2>')
-      .replace(/###\s+(.*)/g, '<h3>$1</h3>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n\n/g, '</p><p>');
-    
-    // Wrap in paragraphs if not already
-    if (!fullContent.startsWith('<')) {
+    // Content is already HTML from GDoc, no conversion needed
+    // Just ensure it starts with a tag
+    if (!fullContent.trim().startsWith('<')) {
       fullContent = `<p>${fullContent}</p>`;
     }
     
