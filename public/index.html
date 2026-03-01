@@ -469,7 +469,8 @@
               keyword: keyword,
               serviceUrl: row[this.columns.serviceUrl] || '',
               rowIndex: row._rowIndex,
-              spreadsheetId: null // Will use env var
+              spreadsheetId: null, // Will use env var
+              clusterKeywords: row[this.columns.clusterKeywords] || ''
             })
           });
           
