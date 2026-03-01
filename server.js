@@ -1460,6 +1460,113 @@ app.post('/api/update-service-page', async (req, res) => {
       }
     }
 
+    // Upload support images to WordPress media
+    const uploadedSupportImages = [];
+    
+    // Support Image 1
+    if (supportImage1Url) {
+      try {
+        console.log('[WP] Uploading support image 1...');
+        const imageResponse = await axios.get(supportImage1Url, {
+          responseType: 'arraybuffer',
+          timeout: 60000
+        });
+        
+        const safeKeyword = focusKeyword.replace(/\s+/g, '-').toLowerCase();
+        const filename = `${safeKeyword}-support-1.jpg`;
+        
+        const mediaResponse = await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media`,
+          Buffer.from(imageResponse.data),
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            },
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Content-Disposition': `attachment; filename="${filename}"`
+            }
+          }
+        );
+
+        const mediaId = mediaResponse.data.id;
+        
+        // Update media with alt text and description
+        await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media/${mediaId}`,
+          {
+            alt_text: `${capitalizedKeyword} procedure steps - ${capitalizedKeyword} in Huntington Beach CA`,
+            description: `${capitalizedKeyword} procedure steps performed by Dr. Tuan A. Tran at Tran Plastic Surgery in Huntington Beach, CA.`,
+            caption: `${capitalizedKeyword} procedure steps`
+          },
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            }
+          }
+        );
+        
+        uploadedSupportImages.push({ id: mediaId, url: mediaResponse.data.source_url });
+        console.log('[WP] Support image 1 uploaded:', mediaResponse.data.source_url);
+      } catch (imageError) {
+        console.error('Support image 1 error:', imageError.message);
+      }
+    }
+    
+    // Support Image 2
+    if (supportImage2Url) {
+      try {
+        console.log('[WP] Uploading support image 2...');
+        const imageResponse = await axios.get(supportImage2Url, {
+          responseType: 'arraybuffer',
+          timeout: 60000
+        });
+        
+        const safeKeyword = focusKeyword.replace(/\s+/g, '-').toLowerCase();
+        const filename = `${safeKeyword}-support-2.jpg`;
+        
+        const mediaResponse = await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media`,
+          Buffer.from(imageResponse.data),
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            },
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Content-Disposition': `attachment; filename="${filename}"`
+            }
+          }
+        );
+
+        const mediaId = mediaResponse.data.id;
+        
+        // Update media with alt text and description
+        await axios.post(
+          `${WP_CONFIG.url}/wp-json/wp/v2/media/${mediaId}`,
+          {
+            alt_text: `${capitalizedKeyword} results and recovery - ${capitalizedKeyword} Huntington Beach`,
+            description: `${capitalizedKeyword} results and recovery at Tran Plastic Surgery in Huntington Beach, CA.`,
+            caption: `${capitalizedKeyword} results and recovery`
+          },
+          {
+            auth: {
+              username: WP_CONFIG.username,
+              password: WP_CONFIG.password
+            }
+          }
+        );
+        
+        uploadedSupportImages.push({ id: mediaId, url: mediaResponse.data.source_url });
+        console.log('[WP] Support image 2 uploaded:', mediaResponse.data.source_url);
+      } catch (imageError) {
+        console.error('Support image 2 error:', imageError.message);
+      }
+    }
+
     // Update spreadsheet with new URLs
     let spreadsheetUpdated = false;
     if (rowIndex && storedTokens) {
@@ -1489,6 +1596,7 @@ app.post('/api/update-service-page', async (req, res) => {
       oldUrl: serviceUrl,
       title: response.data.title.rendered,
       spreadsheetUpdated: spreadsheetUpdated,
+      supportImagesUploaded: uploadedSupportImages.length,
       message: 'Service page updated successfully with new slug'
     });
   } catch (error) {
