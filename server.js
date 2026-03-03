@@ -738,26 +738,26 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
   const metaDescription = `Get ${serviceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
   
   // Short description - naturally include main keyword once
-  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. Our board-certified team at Tran Plastic Surgery offers expert procedures with natural-looking results.`;
+  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> and our board-certified team at Tran Plastic Surgery offer expert procedures with natural-looking results.`;
   
   // H1 for GDoc content (will be removed for WordPress)
   const h1Title = `<h1>${serviceName} | ${location}</h1>`;
   
   // Build content with SEO optimization - using HTML format
-  // Balanced doctor mentions: only in Overview, Candidate section, and FAQ
+  // Dr. Tran mentioned 3 times: Overview (with link), Candidate section, and FAQ
   const fullContent = `${h1Title}
 
 <p>${shortDescription}</p>
 
 <h2>Overview</h2>
 
-<p>${serviceName} is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals. At Tran Plastic Surgery in <strong>${location}</strong>, our surgical team provides expert care tailored to each individual.</p>
+<p>${serviceName} is a specialized cosmetic procedure designed to help patients achieve their desired aesthetic goals. At Tran Plastic Surgery in <strong>${location}</strong>, <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> provides expert care tailored to each individual.</p>
 
 <p>This treatment addresses specific concerns and enhances your overall appearance. Patients in <strong>${location}</strong> and surrounding areas choose this procedure for its transformative results and confidence-boosting effects.</p>
 
 <h2>Who is a Good Candidate?</h2>
 
-<p>Ideal candidates are healthy adults with realistic expectations. During your consultation at our <strong>${location}</strong> facility, our surgeon will discuss your goals and medical history to determine if this procedure is right for you.</p>
+<p>Ideal candidates are healthy adults with realistic expectations. During your consultation at our <strong>${location}</strong> facility, Dr. Tran will discuss your goals and medical history to determine if this procedure is right for you.</p>
 
 <p><strong>You may be an ideal candidate if you:</strong></p>
 <ul>
@@ -818,7 +818,7 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
 <h2>Frequently Asked Questions</h2>
 
 <p><strong>What is ${serviceName}?</strong><br>
-A cosmetic surgical procedure to improve body contour and appearance, performed at our Huntington Beach facility by a board-certified plastic surgeon.</p>
+A cosmetic surgical procedure to improve body contour and appearance, performed at our Huntington Beach facility by Dr. Tuan A. Tran, a board-certified plastic surgeon.</p>
 
 <p><strong>How long does the procedure take?</strong><br>
 Typically 1-3 hours depending on complexity and extent of treatment.</p>
