@@ -184,10 +184,102 @@ app.get('/api/sheet', async (req, res) => {
   }
 });
 
+// Fetch existing WordPress content
+app.get('/api/fetch-wp-content', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+    
+    console.log('[Fetch WP] Fetching content from:', url);
+    
+    // Extract slug from URL
+    const slugMatch = url.match(/\/services\/([^\/]+)/);
+    if (!slugMatch) {
+      return res.status(400).json({ error: 'Could not extract slug from URL' });
+    }
+    
+    const slug = slugMatch[1];
+    console.log('[Fetch WP] Extracted slug:', slug);
+    
+    // Try to fetch from WordPress REST API
+    let content = null;
+    let title = null;
+    
+    // Try services post type first
+    try {
+      const serviceResponse = await axios.get(
+        `${WP_CONFIG.url}/wp-json/wp/v2/services?slug=${slug}`,
+        { auth: { username: WP_CONFIG.username, password: WP_CONFIG.password } }
+      );
+      if (serviceResponse.data && serviceResponse.data.length > 0) {
+        content = serviceResponse.data[0].content?.rendered || '';
+        title = serviceResponse.data[0].title?.rendered || '';
+        console.log('[Fetch WP] Found service content:', content.length, 'chars');
+      }
+    } catch (e) {
+      console.log('[Fetch WP] Service not found, trying pages...');
+    }
+    
+    // Try pages if not found
+    if (!content) {
+      try {
+        const pageResponse = await axios.get(
+          `${WP_CONFIG.url}/wp-json/wp/v2/pages?slug=${slug}`,
+          { auth: { username: WP_CONFIG.username, password: WP_CONFIG.password } }
+        );
+        if (pageResponse.data && pageResponse.data.length > 0) {
+          content = pageResponse.data[0].content?.rendered || '';
+          title = pageResponse.data[0].title?.rendered || '';
+          console.log('[Fetch WP] Found page content:', content.length, 'chars');
+        }
+      } catch (e) {
+        console.log('[Fetch WP] Page not found, trying posts...');
+      }
+    }
+    
+    // Try posts if still not found
+    if (!content) {
+      try {
+        const postResponse = await axios.get(
+          `${WP_CONFIG.url}/wp-json/wp/v2/posts?slug=${slug}`,
+          { auth: { username: WP_CONFIG.username, password: WP_CONFIG.password } }
+        );
+        if (postResponse.data && postResponse.data.length > 0) {
+          content = postResponse.data[0].content?.rendered || '';
+          title = postResponse.data[0].title?.rendered || '';
+          console.log('[Fetch WP] Found post content:', content.length, 'chars');
+        }
+      } catch (e) {
+        console.log('[Fetch WP] Post not found');
+      }
+    }
+    
+    if (content) {
+      res.json({ 
+        success: true, 
+        content: content,
+        title: title,
+        slug: slug
+      });
+    } else {
+      res.status(404).json({ 
+        error: 'Content not found',
+        slug: slug
+      });
+    }
+  } catch (error) {
+    console.error('[Fetch WP] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Generate content with Kimi + Create Google Doc + Update Sheet
 app.post('/api/generate-content', async (req, res) => {
   try {
-    const { keyword, serviceUrl, rowIndex, spreadsheetId, clusterKeywords } = req.body;
+    const { keyword, serviceUrl, rowIndex, spreadsheetId, clusterKeywords, existingContent } = req.body;
     
     // Check if authenticated
     if (!storedTokens) {
@@ -215,8 +307,8 @@ app.post('/api/generate-content', async (req, res) => {
       }
     }
     
-    // Generate optimized content
-    const content = generateOptimizedContent(keyword, clusterKeywords);
+    // Generate optimized content (with existing content if provided)
+    const content = generateOptimizedContent(keyword, clusterKeywords, existingContent);
     
     let docResult;
     
@@ -724,18 +816,58 @@ app.post('/api/wp-test', async (req, res) => {
 });
 
 // Generate optimized service content
-function generateOptimizedContent(keyword, clusterKeywords = '') {
+function generateOptimizedContent(keyword, clusterKeywords = '', existingContent = '') {
   const serviceName = keyword;
   const location = 'Huntington Beach, CA';
   const fullAddress = '20951 Brookhurst St Suite 107, Huntington Beach, CA 92646';
   
   // Parse cluster keywords for natural integration
   const clusterList = clusterKeywords.split(',').map(k => k.trim()).filter(k => k);
-  const topClusters = clusterList.slice(0, 5); // Use top 5 cluster keywords
+  const topClusters = clusterList.slice(0, 5);
   
-  // SEO-Optimized Meta Description (150-160 characters, compelling, CTA)
-  // Format: [Service] in [Location] by [Doctor]. [Benefit]. [Call to action].
+  // SEO-Optimized Meta Description
   const metaDescription = `Get ${serviceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
+  
+  // If existing content is provided, optimize it instead of generating generic content
+  if (existingContent && existingContent.length > 100) {
+    console.log(`[Content] Using existing content as base (${existingContent.length} chars)`);
+    
+    // Clean up existing content - remove scripts, styles, etc.
+    let cleanedContent = existingContent
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/class="[^"]*"/g, '')
+      .replace(/id="[^"]*"/g, '');
+    
+    // Extract key sections from existing content
+    const h1Match = cleanedContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const h2Matches = cleanedContent.match(/<h2[^>]*>(.*?)<\/h2>/gi) || [];
+    
+    // Build optimized content preserving the original structure
+    const h1Title = `<h1>${serviceName} | ${location}</h1>`;
+    
+    // Short description with Dr. Tran link
+    const shortDescription = `${serviceName} in ${location} by <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>. Expert care at Tran Plastic Surgery with natural-looking results. Schedule your consultation today.`;
+    
+    // Combine: H1 + short description + cleaned existing content
+    const fullContent = `${h1Title}
+
+<p>${shortDescription}</p>
+
+${cleanedContent}`;
+    
+    return {
+      fullContent: fullContent,
+      excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
+      metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
+      metaDescription: metaDescription,
+      clusterKeywords: topClusters
+    };
+  }
+  
+  // Fallback to generic template if no existing content
+  console.log(`[Content] No existing content, using generic template`);
   
   // Short description - naturally include main keyword once
   const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> and our board-certified team at Tran Plastic Surgery offer expert procedures with natural-looking results.`;

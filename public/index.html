@@ -458,19 +458,40 @@
       async generateContent(index) {
         const row = this.data[index];
         const keyword = row[this.columns.mainKeyword] || row[this.headers[1]] || 'Untitled';
+        const serviceUrl = row[this.columns.serviceUrl] || '';
         
-        this.showToast(`Generating content for: ${keyword}`, 'info');
+        this.showToast(`Fetching existing content for: ${keyword}...`, 'info');
         
         try {
+          // First, fetch existing content from WordPress if available
+          let existingContent = '';
+          if (serviceUrl) {
+            try {
+              const wpResponse = await fetch(`/api/fetch-wp-content?url=${encodeURIComponent(serviceUrl)}`);
+              if (wpResponse.ok) {
+                const wpData = await wpResponse.json();
+                if (wpData.content) {
+                  existingContent = wpData.content;
+                  this.showToast(`Found existing content (${existingContent.length} chars), optimizing...`, 'info');
+                }
+              }
+            } catch (e) {
+              console.log('Could not fetch existing content:', e);
+            }
+          }
+          
+          this.showToast(`Generating optimized content for: ${keyword}`, 'info');
+          
           const response = await fetch('/api/generate-content', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               keyword: keyword,
-              serviceUrl: row[this.columns.serviceUrl] || '',
+              serviceUrl: serviceUrl,
               rowIndex: row._rowIndex,
-              spreadsheetId: null, // Will use env var
-              clusterKeywords: row[this.columns.clusterKeywords] || ''
+              spreadsheetId: null,
+              clusterKeywords: row[this.columns.clusterKeywords] || '',
+              existingContent: existingContent
             })
           });
           
@@ -481,7 +502,7 @@
             this.showToast('Content generated but spreadsheet update failed: ' + (data.error || ''), 'error');
           }
           console.log('Generated content:', data);
-          this.loadData(); // Refresh to show new link
+          this.loadData();
         } catch (error) {
           this.showToast('Failed to generate content', 'error');
         }
