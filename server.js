@@ -815,7 +815,7 @@ app.post('/api/wp-test', async (req, res) => {
   }
 });
 
-// SEO Optimizer - applies ranking optimization to existing content
+// SEO Optimizer - preserves original content, adds SEO wrapper
 function optimizeContentForSEO(content, serviceName, location, clusterKeywords) {
   console.log(`[SEO] Optimizing content for "${serviceName}" in ${location}`);
   
@@ -823,8 +823,8 @@ function optimizeContentForSEO(content, serviceName, location, clusterKeywords) 
   const clusterList = clusterKeywords.split(',').map(k => k.trim()).filter(k => k);
   const topClusters = clusterList.slice(0, 5);
   
-  // Clean up content
-  let optimized = content
+  // Step 1: Clean up content (remove editor metadata, preserve valuable info)
+  let cleanedContent = content
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<!--[\s\S]*?-->/g, '')
@@ -844,61 +844,78 @@ function optimizeContentForSEO(content, serviceName, location, clusterKeywords) 
     .replace(/\s+>/g, '>')
     .trim();
   
-  // Remove existing H1 if present (we'll add our own)
-  optimized = optimized.replace(/<h1[^>]*>.*?<\/h1>/gi, '');
+  // Step 2: Remove existing H1 (we'll add optimized one)
+  cleanedContent = cleanedContent.replace(/<h1[^>]*>.*?<\/h1>/gi, '');
   
-  // Extract existing H2s to understand structure
-  const existingH2s = optimized.match(/<h2[^>]*>(.*?)<\/h2>/gi) || [];
-  console.log(`[SEO] Found ${existingH2s.length} H2 headings`);
-  
-  // Check if keyword is in first 100 words
-  const first100Words = optimized.replace(/<[^>]+>/g, ' ').substring(0, 500);
-  const keywordInFirst100 = first100Words.toLowerCase().includes(serviceName.toLowerCase());
-  
-  // Add keyword-rich intro if missing
-  if (!keywordInFirst100) {
-    const intro = `<p><strong>${serviceName} in ${location}</strong> helps patients achieve their aesthetic goals with natural-looking results. At Tran Plastic Surgery, <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> provides personalized care for patients throughout Orange County including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>`;
-    optimized = intro + '\n\n' + optimized;
+  // Step 3: Enhance existing H2s with keywords (preserve original meaning)
+  // Only add keyword if H2 doesn't already have it
+  const h2Pattern = /<h2[^>]*>(.*?)<\/h2>/gi;
+  let h2Match;
+  while ((h2Match = h2Pattern.exec(cleanedContent)) !== null) {
+    const originalH2 = h2Match[0];
+    const h2Text = h2Match[1];
+    
+    // Skip if already contains keyword
+    if (h2Text.toLowerCase().includes(serviceName.toLowerCase())) continue;
+    
+    // Enhance specific H2 types
+    let enhancedH2 = originalH2;
+    if (/why consider|what is|about|overview/i.test(h2Text)) {
+      enhancedH2 = `<h2>${serviceName}: ${h2Text}</h2>`;
+    } else if (/benefits/i.test(h2Text)) {
+      enhancedH2 = `<h2>Benefits of ${serviceName}</h2>`;
+    } else if (/procedure|the process/i.test(h2Text)) {
+      enhancedH2 = `<h2>The ${serviceName} Procedure</h2>`;
+    } else if (/recovery|healing/i.test(h2Text)) {
+      enhancedH2 = `<h2>${serviceName} Recovery</h2>`;
+    } else if (/results/i.test(h2Text)) {
+      enhancedH2 = `<h2>${serviceName} Results</h2>`;
+    } else if (/cost|price/i.test(h2Text)) {
+      enhancedH2 = `<h2>${serviceName} Cost in ${location}</h2>`;
+    }
+    
+    cleanedContent = cleanedContent.replace(originalH2, enhancedH2);
   }
   
-  // Ensure H2s have keyword where relevant
-  optimized = optimized.replace(/<h2>(Why Consider|What is|Overview|About)/i, `<h2>${serviceName}: $1`);
-  optimized = optimized.replace(/<h2>(Benefits|Advantages)/i, `<h2>Benefits of ${serviceName}`);
-  optimized = optimized.replace(/<h2>(Procedure|Surgery|Treatment)/i, `<h2>The ${serviceName} Procedure`);
-  optimized = optimized.replace(/<h2>(Recovery|Healing)/i, `<h2>${serviceName} Recovery`);
-  optimized = optimized.replace(/<h2>(Results|Outcome)/i, `<h2>${serviceName} Results`);
-  optimized = optimized.replace(/<h2>(Cost|Price)/i, `<h2>${serviceName} Cost in ${location}`);
+  // Step 4: Build SEO wrapper (adds to beginning and end, doesn't replace content)
+  let optimized = '';
   
-  // Add location mentions if missing
-  const hasLocation = optimized.toLowerCase().includes('huntington beach');
-  if (!hasLocation) {
-    // Add after first paragraph
-    optimized = optimized.replace(/(<p>.*?<\/p>)([\s\S]*?)(<h2|$)/, `$1\n\n<p>Our ${location} facility serves patients from throughout Orange County and nearby communities including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>\n\n$3`);
+  // Check if keyword is in first paragraph
+  const firstPara = cleanedContent.match(/<p[^>]*>(.*?)<\/p>/i);
+  const hasKeywordInFirstPara = firstPara && firstPara[1].toLowerCase().includes(serviceName.toLowerCase());
+  
+  // Add SEO intro only if keyword is missing from first paragraph
+  if (!hasKeywordInFirstPara) {
+    optimized += `<p><strong>${serviceName} in ${location}</strong> helps patients achieve their aesthetic goals with natural-looking results. At Tran Plastic Surgery, <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> provides personalized care for patients throughout Orange County including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>\n\n`;
   }
   
-  // Add service areas section if missing
+  // Step 5: Add the PRESERVED original content
+  optimized += cleanedContent;
+  
+  // Step 6: Add location mention if missing
+  if (!optimized.toLowerCase().includes('huntington beach')) {
+    optimized += `\n\n<p>Our ${location} facility serves patients from throughout Orange County and nearby communities including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>`;
+  }
+  
+  // Step 7: Add Service Areas section if missing
   if (!optimized.includes('Service Areas') && !optimized.includes('service areas')) {
-    const serviceAreas = `\n\n<h2>Service Areas</h2>\n<p>Tran Plastic Surgery is conveniently located in <strong>Huntington Beach, CA</strong>. We proudly serve patients from:</p>\n<ul>\n<li>Fountain Valley</li>\n<li>Westminster</li>\n<li>Garden Grove</li>\n<li>Costa Mesa</li>\n<li>Newport Beach</li>\n<li>And throughout Orange County</li>\n</ul>`;
-    optimized = optimized + serviceAreas;
+    optimized += `\n\n<h2>Service Areas</h2>\n<p>Tran Plastic Surgery is conveniently located in <strong>Huntington Beach, CA</strong>. We proudly serve patients from:</p>\n<ul>\n<li>Fountain Valley</li>\n<li>Westminster</li>\n<li>Garden Grove</li>\n<li>Costa Mesa</li>\n<li>Newport Beach</li>\n<li>And throughout Orange County</li>\n</ul>`;
   }
   
-  // Ensure FAQ section exists for schema
+  // Step 8: Add FAQ section if missing (for schema markup)
   if (!optimized.includes('Frequently Asked') && !optimized.includes('FAQ')) {
-    const faqSection = `\n\n<h2>Frequently Asked Questions About ${serviceName}</h2>\n\n<p><strong>What is ${serviceName}?</strong><br>\n${serviceName} is a cosmetic surgical procedure designed to enhance your appearance. Dr. Tuan A. Tran performs this procedure at our Huntington Beach facility.</p>\n\n<p><strong>How long does ${serviceName} take?</strong><br>\nThe procedure typically takes 1-3 hours depending on the complexity and extent of treatment.</p>\n\n<p><strong>What is the recovery time for ${serviceName}?</strong><br>\nMost patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>\n\n<p><strong>Are ${serviceName} results permanent?</strong><br>\nResults are long-lasting when you maintain a stable weight and healthy lifestyle.</p>\n\n<p><strong>How much does ${serviceName} cost in Huntington Beach?</strong><br>\nPricing varies based on procedure complexity. Contact us at (714) 839-8000 for a personalized consultation.</p>`;
-    optimized = optimized + faqSection;
+    optimized += `\n\n<h2>Frequently Asked Questions About ${serviceName}</h2>\n\n<p><strong>What is ${serviceName}?</strong><br>\n${serviceName} is a cosmetic surgical procedure designed to enhance your appearance. Dr. Tuan A. Tran performs this procedure at our Huntington Beach facility.</p>\n\n<p><strong>How long does ${serviceName} take?</strong><br>\nThe procedure typically takes 1-3 hours depending on the complexity and extent of treatment.</p>\n\n<p><strong>What is the recovery time for ${serviceName}?</strong><br>\nMost patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>\n\n<p><strong>Are ${serviceName} results permanent?</strong><br>\nResults are long-lasting when you maintain a stable weight and healthy lifestyle.</p>\n\n<p><strong>How much does ${serviceName} cost in Huntington Beach?</strong><br>\nPricing varies based on procedure complexity. Contact us at (714) 839-8000 for a personalized consultation.</p>`;
   }
   
-  // Add internal links to related services
+  // Step 9: Add Related Procedures
   const relatedServices = getRelatedServices(serviceName);
   if (relatedServices.length > 0 && !optimized.includes('Related Procedures')) {
-    const relatedSection = `\n\n<h2>Related Procedures</h2>\n<p>Patients considering ${serviceName} may also be interested in:</p>\n<ul>\n${relatedServices.map(s => `<li><a href="https://tranplastic.com/services/${s.slug}/">${s.name}</a></li>`).join('\n')}\n</ul>`;
-    optimized = optimized + relatedSection;
+    optimized += `\n\n<h2>Related Procedures</h2>\n<p>Patients considering ${serviceName} may also be interested in:</p>\n<ul>\n${relatedServices.map(s => `<li><a href="https://tranplastic.com/services/${s.slug}/">${s.name}</a></li>`).join('\n')}\n</ul>`;
   }
   
-  // Add final CTA if missing
+  // Step 10: Add final CTA if missing
   if (!optimized.includes('Schedule your consultation') && !optimized.includes('Call us today')) {
-    const cta = `\n\n<h2>Schedule Your ${serviceName} Consultation</h2>\n<p>Ready to learn more about ${serviceName} in ${location}? Contact Tran Plastic Surgery today to schedule your private consultation with <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>.</p>\n<p>📞 Call: <a href="tel:+17148398000">(714) 839-8000</a><br>\n📍 Location: 20951 Brookhurst St Suite 107, Huntington Beach, CA 92646</p>`;
-    optimized = optimized + cta;
+    optimized += `\n\n<h2>Schedule Your ${serviceName} Consultation</h2>\n<p>Ready to learn more about ${serviceName} in ${location}? Contact Tran Plastic Surgery today to schedule your private consultation with <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>.</p>\n<p>📞 Call: <a href="tel:+17148398000">(714) 839-8000</a><br>\n📍 Location: 20951 Brookhurst St Suite 107, Huntington Beach, CA 92646</p>`;
   }
   
   return {
