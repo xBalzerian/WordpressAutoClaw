@@ -818,6 +818,25 @@ function generateOptimizedContent(keyword, clusterKeywords = '') {
 <h2>Frequently Asked Questions</h2>
 
 <p><strong>What is ${serviceName}?</strong><br>
+A cosmetic surgical procedure to improve body contour and appearance, performed at our Huntington Beach facility by <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>, a board-certified plastic surgeon.</p>
+
+<p><strong>How long does the procedure take?</strong><br>
+Typically 1-3 hours depending on complexity and extent of treatment.</p>
+
+<p><strong>What is the recovery time?</strong><br>
+Most patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>
+
+<p><strong>Are results permanent?</strong><br>
+Results are long-lasting when you maintain a stable weight and healthy lifestyle.</p>
+
+<p><strong>Will there be visible scars?</strong><br>
+Incisions are strategically placed to minimize visibility. Scars fade over time.</p>`;, CA</strong>, we proudly serve patients throughout <strong>Orange County</strong> including Fountain Valley, Westminster, and surrounding communities.</p>
+
+<hr>
+
+<h2>Frequently Asked Questions</h2>
+
+<p><strong>What is ${serviceName}?</strong><br>
 A cosmetic surgical procedure to improve body contour and appearance, performed at our Huntington Beach facility by Dr. Tuan A. Tran, a board-certified plastic surgeon.</p>
 
 <p><strong>How long does the procedure take?</strong><br>
