@@ -832,13 +832,27 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
   if (existingContent && existingContent.length > 100) {
     console.log(`[Content] Using existing content as base (${existingContent.length} chars)`);
     
-    // Clean up existing content - remove scripts, styles, etc.
+    // Clean up existing content - remove scripts, styles, editor attributes, etc.
     let cleanedContent = existingContent
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/class="[^"]*"/g, '')
-      .replace(/id="[^"]*"/g, '');
+      .replace(/\s*data-start="\d+"/g, '')
+      .replace(/\s*data-end="\d+"/g, '')
+      .replace(/\s*data-src="[^"]*"/g, '')
+      .replace(/\s*data-srcset="[^"]*"/g, '')
+      .replace(/\s*data-sizes="[^"]*"/g, '')
+      .replace(/\s*data-eio-rwidth="\d+"/g, '')
+      .replace(/\s*data-eio-rheight="\d+"/g, '')
+      .replace(/\s*decoding="[^"]*"/g, '')
+      .replace(/\s*fetchpriority="[^"]*"/g, '')
+      .replace(/\s*srcset="[^"]*"/g, '')
+      .replace(/\s*sizes="[^"]*"/g, '')
+      .replace(/\s*target="_new"/g, ' target="_blank"')
+      .replace(/\s*rel="noopener"/g, '')
+      .replace(/\s+>/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
     
     // Extract key sections from existing content
     const h1Match = cleanedContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
