@@ -815,6 +815,18 @@ app.post('/api/wp-test', async (req, res) => {
   }
 });
 
+// Helper function to capitalize titles properly
+function capitalizeTitle(str) {
+  if (!str) return '';
+  
+  // Split by spaces and capitalize each word
+  return str.split(' ').map(word => {
+    if (!word) return '';
+    // Capitalize first letter, lowercase the rest
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
+}
+
 // SEO Optimizer - preserves original content, adds SEO wrapper
 function optimizeContentForSEO(content, serviceName, location, clusterKeywords) {
   console.log(`[SEO] Optimizing content for "${serviceName}" in ${location}`);
@@ -990,6 +1002,7 @@ function getRelatedServices(currentService) {
 // Generate optimized service content
 function generateOptimizedContent(keyword, clusterKeywords = '', existingContent = '') {
   const serviceName = keyword;
+  const capitalizedServiceName = capitalizeTitle(serviceName);
   const location = 'Huntington Beach, CA';
   const fullAddress = '20951 Brookhurst St Suite 107, Huntington Beach, CA 92646';
   
@@ -998,7 +1011,7 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
   const topClusters = clusterList.slice(0, 5);
   
   // SEO-Optimized Meta Description
-  const metaDescription = `Get ${serviceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
+  const metaDescription = `Get ${capitalizedServiceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
   
   // If existing content is provided, use SEO optimizer
   if (existingContent && existingContent.length > 100) {
@@ -1007,7 +1020,7 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
     const optimization = optimizeContentForSEO(existingContent, serviceName, location, clusterKeywords);
     
     // Build final content with proper structure
-    const h1Title = `<h1>${serviceName} | ${location}</h1>`;
+    const h1Title = `<h1>${capitalizedServiceName} | ${location}</h1>`;
     
     const fullContent = `${h1Title}\n\n${optimization.optimizedContent}`;
     
@@ -1015,8 +1028,8 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
     
     return {
       fullContent: fullContent,
-      excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
-      metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
+      excerpt: `Learn about ${capitalizedServiceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
+      metaTitle: `${capitalizedServiceName} ${location} | Tran Plastic Surgery`,
       metaDescription: metaDescription,
       clusterKeywords: optimization.topClusters,
       stats: {
@@ -1030,10 +1043,10 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
   console.log(`[Content] No existing content, using generic template`);
   
   // Short description - naturally include main keyword once
-  const shortDescription = `${serviceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> and our board-certified team at Tran Plastic Surgery offer expert procedures with natural-looking results.`;
+  const shortDescription = `${capitalizedServiceName} in ${location} removes excess skin and fat to create a smoother, more toned appearance. <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> and our board-certified team at Tran Plastic Surgery offer expert procedures with natural-looking results.`;
   
   // H1 for GDoc content (will be removed for WordPress)
-  const h1Title = `<h1>${serviceName} | ${location}</h1>`;
+  const h1Title = `<h1>${capitalizedServiceName} | ${location}</h1>`;
   
   // Build content with SEO optimization - using HTML format
   // Dr. Tran mentioned 3 times: Overview (with link), Candidate section, and FAQ
