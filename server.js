@@ -815,6 +815,161 @@ app.post('/api/wp-test', async (req, res) => {
   }
 });
 
+// SEO Optimizer - applies ranking optimization to existing content
+function optimizeContentForSEO(content, serviceName, location, clusterKeywords) {
+  console.log(`[SEO] Optimizing content for "${serviceName}" in ${location}`);
+  
+  // Parse cluster keywords
+  const clusterList = clusterKeywords.split(',').map(k => k.trim()).filter(k => k);
+  const topClusters = clusterList.slice(0, 5);
+  
+  // Clean up content
+  let optimized = content
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s*data-start="\d+"/g, '')
+    .replace(/\s*data-end="\d+"/g, '')
+    .replace(/\s*data-src="[^"]*"/g, '')
+    .replace(/\s*data-srcset="[^"]*"/g, '')
+    .replace(/\s*data-sizes="[^"]*"/g, '')
+    .replace(/\s*data-eio-rwidth="\d+"/g, '')
+    .replace(/\s*data-eio-rheight="\d+"/g, '')
+    .replace(/\s*decoding="[^"]*"/g, '')
+    .replace(/\s*fetchpriority="[^"]*"/g, '')
+    .replace(/\s*srcset="[^"]*"/g, '')
+    .replace(/\s*sizes="[^"]*"/g, '')
+    .replace(/\s*target="_new"/g, ' target="_blank"')
+    .replace(/\s*rel="noopener"/g, '')
+    .replace(/\s+>/g, '>')
+    .trim();
+  
+  // Remove existing H1 if present (we'll add our own)
+  optimized = optimized.replace(/<h1[^>]*>.*?<\/h1>/gi, '');
+  
+  // Extract existing H2s to understand structure
+  const existingH2s = optimized.match(/<h2[^>]*>(.*?)<\/h2>/gi) || [];
+  console.log(`[SEO] Found ${existingH2s.length} H2 headings`);
+  
+  // Check if keyword is in first 100 words
+  const first100Words = optimized.replace(/<[^>]+>/g, ' ').substring(0, 500);
+  const keywordInFirst100 = first100Words.toLowerCase().includes(serviceName.toLowerCase());
+  
+  // Add keyword-rich intro if missing
+  if (!keywordInFirst100) {
+    const intro = `<p><strong>${serviceName} in ${location}</strong> helps patients achieve their aesthetic goals with natural-looking results. At Tran Plastic Surgery, <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a> provides personalized care for patients throughout Orange County including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>`;
+    optimized = intro + '\n\n' + optimized;
+  }
+  
+  // Ensure H2s have keyword where relevant
+  optimized = optimized.replace(/<h2>(Why Consider|What is|Overview|About)/i, `<h2>${serviceName}: $1`);
+  optimized = optimized.replace(/<h2>(Benefits|Advantages)/i, `<h2>Benefits of ${serviceName}`);
+  optimized = optimized.replace(/<h2>(Procedure|Surgery|Treatment)/i, `<h2>The ${serviceName} Procedure`);
+  optimized = optimized.replace(/<h2>(Recovery|Healing)/i, `<h2>${serviceName} Recovery`);
+  optimized = optimized.replace(/<h2>(Results|Outcome)/i, `<h2>${serviceName} Results`);
+  optimized = optimized.replace(/<h2>(Cost|Price)/i, `<h2>${serviceName} Cost in ${location}`);
+  
+  // Add location mentions if missing
+  const hasLocation = optimized.toLowerCase().includes('huntington beach');
+  if (!hasLocation) {
+    // Add after first paragraph
+    optimized = optimized.replace(/(<p>.*?<\/p>)([\s\S]*?)(<h2|$)/, `$1\n\n<p>Our ${location} facility serves patients from throughout Orange County and nearby communities including Fountain Valley, Westminster, Garden Grove, Costa Mesa, and Newport Beach.</p>\n\n$3`);
+  }
+  
+  // Add service areas section if missing
+  if (!optimized.includes('Service Areas') && !optimized.includes('service areas')) {
+    const serviceAreas = `\n\n<h2>Service Areas</h2>\n<p>Tran Plastic Surgery is conveniently located in <strong>Huntington Beach, CA</strong>. We proudly serve patients from:</p>\n<ul>\n<li>Fountain Valley</li>\n<li>Westminster</li>\n<li>Garden Grove</li>\n<li>Costa Mesa</li>\n<li>Newport Beach</li>\n<li>And throughout Orange County</li>\n</ul>`;
+    optimized = optimized + serviceAreas;
+  }
+  
+  // Ensure FAQ section exists for schema
+  if (!optimized.includes('Frequently Asked') && !optimized.includes('FAQ')) {
+    const faqSection = `\n\n<h2>Frequently Asked Questions About ${serviceName}</h2>\n\n<p><strong>What is ${serviceName}?</strong><br>\n${serviceName} is a cosmetic surgical procedure designed to enhance your appearance. Dr. Tuan A. Tran performs this procedure at our Huntington Beach facility.</p>\n\n<p><strong>How long does ${serviceName} take?</strong><br>\nThe procedure typically takes 1-3 hours depending on the complexity and extent of treatment.</p>\n\n<p><strong>What is the recovery time for ${serviceName}?</strong><br>\nMost patients return to light activities within 1-2 weeks, with full recovery in 4-6 weeks.</p>\n\n<p><strong>Are ${serviceName} results permanent?</strong><br>\nResults are long-lasting when you maintain a stable weight and healthy lifestyle.</p>\n\n<p><strong>How much does ${serviceName} cost in Huntington Beach?</strong><br>\nPricing varies based on procedure complexity. Contact us at (714) 839-8000 for a personalized consultation.</p>`;
+    optimized = optimized + faqSection;
+  }
+  
+  // Add internal links to related services
+  const relatedServices = getRelatedServices(serviceName);
+  if (relatedServices.length > 0 && !optimized.includes('Related Procedures')) {
+    const relatedSection = `\n\n<h2>Related Procedures</h2>\n<p>Patients considering ${serviceName} may also be interested in:</p>\n<ul>\n${relatedServices.map(s => `<li><a href="https://tranplastic.com/services/${s.slug}/">${s.name}</a></li>`).join('\n')}\n</ul>`;
+    optimized = optimized + relatedSection;
+  }
+  
+  // Add final CTA if missing
+  if (!optimized.includes('Schedule your consultation') && !optimized.includes('Call us today')) {
+    const cta = `\n\n<h2>Schedule Your ${serviceName} Consultation</h2>\n<p>Ready to learn more about ${serviceName} in ${location}? Contact Tran Plastic Surgery today to schedule your private consultation with <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>.</p>\n<p>📞 Call: <a href="tel:+17148398000">(714) 839-8000</a><br>\n📍 Location: 20951 Brookhurst St Suite 107, Huntington Beach, CA 92646</p>`;
+    optimized = optimized + cta;
+  }
+  
+  return {
+    optimizedContent: optimized,
+    topClusters: topClusters,
+    h2Count: (optimized.match(/<h2/gi) || []).length,
+    wordCount: optimized.replace(/<[^>]+>/g, ' ').split(/\s+/).length
+  };
+}
+
+// Get related services for internal linking
+function getRelatedServices(currentService) {
+  const serviceMap = {
+    'ear surgery': [
+      { name: 'Facelift Surgery', slug: 'facelift-surgery' },
+      { name: 'Eyelid Surgery', slug: 'eyelid-surgery' },
+      { name: 'Neck Lift Surgery', slug: 'neck-lift-surgery' }
+    ],
+    'facelift surgery': [
+      { name: 'Neck Lift Surgery', slug: 'neck-lift-surgery' },
+      { name: 'Eyelid Surgery', slug: 'eyelid-surgery' },
+      { name: 'Ear Surgery', slug: 'ear-surgery' }
+    ],
+    'eyelid surgery': [
+      { name: 'Facelift Surgery', slug: 'facelift-surgery' },
+      { name: 'Brow Lift', slug: 'brow-lift' },
+      { name: 'Ear Surgery', slug: 'ear-surgery' }
+    ],
+    'neck lift surgery': [
+      { name: 'Facelift Surgery', slug: 'facelift-surgery' },
+      { name: 'Chin Augmentation', slug: 'chin-augmentation' },
+      { name: 'Ear Surgery', slug: 'ear-surgery' }
+    ],
+    'tummy tuck': [
+      { name: 'Liposuction', slug: 'liposuction' },
+      { name: 'Mommy Makeover', slug: 'mommy-makeover' },
+      { name: 'Body Lift', slug: 'body-lift' }
+    ],
+    'liposuction': [
+      { name: 'Tummy Tuck', slug: 'tummy-tuck' },
+      { name: 'Body Contouring', slug: 'body-contouring' },
+      { name: 'Mommy Makeover', slug: 'mommy-makeover' }
+    ],
+    'breast augmentation': [
+      { name: 'Breast Lift', slug: 'breast-lift' },
+      { name: 'Breast Reduction', slug: 'breast-reduction' },
+      { name: 'Mommy Makeover', slug: 'mommy-makeover' }
+    ],
+    'breast lift': [
+      { name: 'Breast Augmentation', slug: 'breast-augmentation' },
+      { name: 'Breast Reduction', slug: 'breast-reduction' },
+      { name: 'Mommy Makeover', slug: 'mommy-makeover' }
+    ],
+    'breast reduction': [
+      { name: 'Breast Augmentation', slug: 'breast-augmentation' },
+      { name: 'Breast Lift', slug: 'breast-lift' },
+      { name: 'Tummy Tuck', slug: 'tummy-tuck' }
+    ],
+    'mommy makeover': [
+      { name: 'Tummy Tuck', slug: 'tummy-tuck' },
+      { name: 'Breast Augmentation', slug: 'breast-augmentation' },
+      { name: 'Liposuction', slug: 'liposuction' }
+    ]
+  };
+  
+  const normalizedService = currentService.toLowerCase().trim();
+  return serviceMap[normalizedService] || [
+    { name: 'View All Services', slug: '' }
+  ];
+}
+
 // Generate optimized service content
 function generateOptimizedContent(keyword, clusterKeywords = '', existingContent = '') {
   const serviceName = keyword;
@@ -828,55 +983,29 @@ function generateOptimizedContent(keyword, clusterKeywords = '', existingContent
   // SEO-Optimized Meta Description
   const metaDescription = `Get ${serviceName} in ${location} by Dr. Tuan A. Tran, board-certified plastic surgeon. Natural-looking results, personalized care. Book your free consultation today!`.substring(0, 160);
   
-  // If existing content is provided, optimize it instead of generating generic content
+  // If existing content is provided, use SEO optimizer
   if (existingContent && existingContent.length > 100) {
-    console.log(`[Content] Using existing content as base (${existingContent.length} chars)`);
+    console.log(`[Content] Running SEO optimization on existing content (${existingContent.length} chars)`);
     
-    // Clean up existing content - remove scripts, styles, editor attributes, etc.
-    let cleanedContent = existingContent
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/\s*data-start="\d+"/g, '')
-      .replace(/\s*data-end="\d+"/g, '')
-      .replace(/\s*data-src="[^"]*"/g, '')
-      .replace(/\s*data-srcset="[^"]*"/g, '')
-      .replace(/\s*data-sizes="[^"]*"/g, '')
-      .replace(/\s*data-eio-rwidth="\d+"/g, '')
-      .replace(/\s*data-eio-rheight="\d+"/g, '')
-      .replace(/\s*decoding="[^"]*"/g, '')
-      .replace(/\s*fetchpriority="[^"]*"/g, '')
-      .replace(/\s*srcset="[^"]*"/g, '')
-      .replace(/\s*sizes="[^"]*"/g, '')
-      .replace(/\s*target="_new"/g, ' target="_blank"')
-      .replace(/\s*rel="noopener"/g, '')
-      .replace(/\s+>/g, '>')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const optimization = optimizeContentForSEO(existingContent, serviceName, location, clusterKeywords);
     
-    // Extract key sections from existing content
-    const h1Match = cleanedContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
-    const h2Matches = cleanedContent.match(/<h2[^>]*>(.*?)<\/h2>/gi) || [];
-    
-    // Build optimized content preserving the original structure
+    // Build final content with proper structure
     const h1Title = `<h1>${serviceName} | ${location}</h1>`;
     
-    // Short description with Dr. Tran link
-    const shortDescription = `${serviceName} in ${location} by <a href="https://tranplastic.com/about-dr-tran/">Dr. Tuan A. Tran</a>. Expert care at Tran Plastic Surgery with natural-looking results. Schedule your consultation today.`;
+    const fullContent = `${h1Title}\n\n${optimization.optimizedContent}`;
     
-    // Combine: H1 + short description + cleaned existing content
-    const fullContent = `${h1Title}
-
-<p>${shortDescription}</p>
-
-${cleanedContent}`;
+    console.log(`[SEO] Optimization complete: ${optimization.wordCount} words, ${optimization.h2Count} H2s`);
     
     return {
       fullContent: fullContent,
       excerpt: `Learn about ${serviceName} at Tran Plastic Surgery in ${location}. Board-certified surgeon Dr. Tuan A. Tran provides expert care.`,
       metaTitle: `${serviceName} ${location} | Tran Plastic Surgery`,
       metaDescription: metaDescription,
-      clusterKeywords: topClusters
+      clusterKeywords: optimization.topClusters,
+      stats: {
+        wordCount: optimization.wordCount,
+        h2Count: optimization.h2Count
+      }
     };
   }
   
