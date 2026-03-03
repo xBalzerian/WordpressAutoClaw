@@ -875,19 +875,6 @@ function optimizeContentForSEO(content, serviceName, location, clusterKeywords) 
     .replace(/(<\/div>)\s*<\/div>/g, '$1')
     .replace(/\s+>/g, '>')
     .trim();
-    .replace(/\s*data-src="[^"]*"/g, '')
-    .replace(/\s*data-srcset="[^"]*"/g, '')
-    .replace(/\s*data-sizes="[^"]*"/g, '')
-    .replace(/\s*data-eio-rwidth="\d+"/g, '')
-    .replace(/\s*data-eio-rheight="\d+"/g, '')
-    .replace(/\s*decoding="[^"]*"/g, '')
-    .replace(/\s*fetchpriority="[^"]*"/g, '')
-    .replace(/\s*srcset="[^"]*"/g, '')
-    .replace(/\s*sizes="[^"]*"/g, '')
-    .replace(/\s*target="_new"/g, ' target="_blank"')
-    .replace(/\s*rel="noopener"/g, '')
-    .replace(/\s+>/g, '>')
-    .trim();
   
   // Step 2: Remove existing H1 (we'll add optimized one)
   cleanedContent = cleanedContent.replace(/<h1[^>]*>.*?<\/h1>/gi, '');
