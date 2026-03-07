@@ -9,19 +9,31 @@ class GoogleOAuthService {
   constructor() {
     this.oauth2Client = null;
     this.serviceAccountAuth = null;
+    this.docs = null;
+    this.drive = null;
+    this.sheets = null;
     
     // Check if Service Account key is available
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
       try {
         const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-        this.serviceAccountAuth = new google.auth.GoogleAuth({
-          credentials: serviceAccountKey,
-          scopes: [
+        // Create JWT client for Service Account
+        this.serviceAccountAuth = new google.auth.JWT(
+          serviceAccountKey.client_email,
+          null,
+          serviceAccountKey.private_key,
+          [
             'https://www.googleapis.com/auth/documents',
             'https://www.googleapis.com/auth/drive',
             'https://www.googleapis.com/auth/spreadsheets'
           ]
-        });
+        );
+        
+        // Initialize APIs with Service Account auth
+        this.docs = google.docs({ version: 'v1', auth: this.serviceAccountAuth });
+        this.drive = google.drive({ version: 'v3', auth: this.serviceAccountAuth });
+        this.sheets = google.sheets({ version: 'v4', auth: this.serviceAccountAuth });
+        
         console.log('Service Account authentication configured');
       } catch (e) {
         console.error('Failed to parse Service Account key:', e.message);
@@ -29,21 +41,17 @@ class GoogleOAuthService {
     }
     
     // Setup OAuth2 client as fallback
-    if (CLIENT_ID && CLIENT_SECRET) {
+    if (!this.serviceAccountAuth && CLIENT_ID && CLIENT_SECRET) {
       this.oauth2Client = new google.auth.OAuth2(
         CLIENT_ID,
         CLIENT_SECRET,
         REDIRECT_URI
       );
-    }
-    
-    // Use Service Account if available, otherwise OAuth2
-    const auth = this.serviceAccountAuth || this.oauth2Client;
-    
-    if (auth) {
-      this.docs = google.docs({ version: 'v1', auth });
-      this.drive = google.drive({ version: 'v3', auth });
-      this.sheets = google.sheets({ version: 'v4', auth });
+      
+      // Initialize APIs with OAuth2
+      this.docs = google.docs({ version: 'v1', auth: this.oauth2Client });
+      this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+      this.sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
     }
   }
   
