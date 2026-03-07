@@ -124,19 +124,35 @@ class GoogleOAuthService {
       const documentId = createResponse.data.documentId;
       console.log('Created document:', documentId);
 
-      // Share with your email immediately
+      // Share document - make it accessible
       try {
+        // First, try to make it editable by anyone with link (most reliable)
         await this.drive.permissions.create({
           fileId: documentId,
           requestBody: {
             role: 'writer',
-            type: 'user',
-            emailAddress: 'balzgaming77@gmail.com'
+            type: 'anyone'
           }
         });
-        console.log('Document shared with balzgaming77@gmail.com');
+        console.log('Document shared: anyone with link can edit');
+        
+        // Also try to share with specific email as backup
+        try {
+          await this.drive.permissions.create({
+            fileId: documentId,
+            requestBody: {
+              role: 'writer',
+              type: 'user',
+              emailAddress: 'balzgaming77@gmail.com'
+            }
+          });
+          console.log('Document also shared with balzgaming77@gmail.com');
+        } catch (emailShareError) {
+          console.log('Email sharing failed (non-critical):', emailShareError.message);
+        }
       } catch (shareError) {
         console.log('Could not share document:', shareError.message);
+        // Non-critical - document still created
       }
 
       // Get document to find end index
@@ -164,8 +180,8 @@ class GoogleOAuthService {
         console.log('Content inserted successfully');
       }
 
-      // Get document URL
-      const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
+      // Get document URL with sharing enabled
+      const docUrl = `https://docs.google.com/document/d/${documentId}/edit?usp=sharing`;
 
       return {
         success: true,
