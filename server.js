@@ -17,11 +17,29 @@ let storedTokens = null;
 try {
   if (process.env.GOOGLE_OAUTH_TOKENS) {
     storedTokens = JSON.parse(process.env.GOOGLE_OAUTH_TOKENS);
-    console.log('Loaded tokens from env');
+    console.log('Loaded OAuth tokens from env');
   }
 } catch (e) {
-  console.error('Failed to load tokens from env:', e.message);
+  console.error('Failed to load OAuth tokens from env:', e.message);
 }
+
+// Check if Service Account is available
+const hasGoogleAuth = () => {
+  return googleService.hasServiceAccount() || (storedTokens !== null);
+};
+
+// Helper to set Google credentials
+const setGoogleCredentials = () => {
+  if (googleService.hasServiceAccount()) {
+    console.log('Using Service Account for authentication');
+    return true;
+  } else if (storedTokens) {
+    console.log('Using OAuth tokens for authentication');
+    setGoogleCredentials();
+    return true;
+  }
+  return false;
+};
 
 // Hardcoded config
 const CONFIG = {
@@ -287,11 +305,11 @@ app.post('/api/generate-content', async (req, res) => {
     let docResult = { success: false, docUrl: null, docId: null, error: null };
     let googleErrors = [];
     
-    // Try to use Google services if authenticated
-    if (storedTokens) {
+    // Try to use Google services if authenticated (Service Account or OAuth)
+    if (hasGoogleAuth()) {
       try {
-        // Set credentials
-        googleService.setCredentialsFromTokens(storedTokens);
+        // Set credentials (Service Account or OAuth)
+        setGoogleCredentials();
         
         // Check if GDoc already exists for this row
         let existingDocUrl = null;
@@ -411,13 +429,13 @@ app.post('/api/update-spreadsheet', async (req, res) => {
   try {
     const { rowIndex, docUrl } = req.body;
     
-    if (!storedTokens) {
+    if (!hasGoogleAuth()) {
       return res.status(401).json({ 
         error: 'Not authenticated with Google. Please visit /auth/google first.' 
       });
     }
     
-    googleService.setCredentialsFromTokens(storedTokens);
+    setGoogleCredentials();
     
     const spreadsheetId = process.env.SPREADSHEET_ID;
     if (!spreadsheetId) {
@@ -571,7 +589,7 @@ async function generateImagesInBackground(keyword, rowIndex) {
     if (rowIndex && CONFIG.GITHUB_TOKEN && storedTokens) {
       const spreadsheetId = process.env.SPREADSHEET_ID;
       if (spreadsheetId) {
-        googleService.setCredentialsFromTokens(storedTokens);
+        setGoogleCredentials();
         
         // Update columns G, H, I
         const featureImage = images.find(img => img.type === 'feature')?.url || '';
@@ -1181,13 +1199,13 @@ app.post('/api/update-images', async (req, res) => {
   try {
     const { rowIndex, featureImage, supportImage1, supportImage2 } = req.body;
     
-    if (!storedTokens) {
+    if (!hasGoogleAuth()) {
       return res.status(401).json({ 
         error: 'Not authenticated with Google. Please visit /auth/google first.' 
       });
     }
     
-    googleService.setCredentialsFromTokens(storedTokens);
+    setGoogleCredentials();
     
     const spreadsheetId = process.env.SPREADSHEET_ID;
     if (!spreadsheetId) {
@@ -1460,12 +1478,12 @@ app.post('/api/kie-callback', async (req, res) => {
 // Update spreadsheet immediately when an image is ready
 async function updateSpreadsheetWithImage(rowIndex, imageType, githubUrl) {
   try {
-    if (!storedTokens) {
+    if (!hasGoogleAuth()) {
       console.log('[Kie] No tokens available for spreadsheet update');
       return;
     }
     
-    googleService.setCredentialsFromTokens(storedTokens);
+    setGoogleCredentials();
     const spreadsheetId = process.env.SPREADSHEET_ID;
     
     if (!spreadsheetId) {
@@ -1611,7 +1629,7 @@ app.post('/api/update-service-page', async (req, res) => {
     let content = '';
     if (gdocUrl && storedTokens) {
       console.log('[WP] Fetching content from GDoc:', gdocUrl);
-      googleService.setCredentialsFromTokens(storedTokens);
+      setGoogleCredentials();
       const docResult = await googleService.getGoogleDocContent(gdocUrl);
       if (docResult.success) {
         content = docResult.content;
@@ -1998,7 +2016,7 @@ app.post('/api/update-service-page', async (req, res) => {
     let spreadsheetUpdated = false;
     if (rowIndex && storedTokens) {
       try {
-        googleService.setCredentialsFromTokens(storedTokens);
+        setGoogleCredentials();
         const spreadsheetId = process.env.SPREADSHEET_ID;
         
         if (spreadsheetId) {
