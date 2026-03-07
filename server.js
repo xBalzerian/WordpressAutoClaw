@@ -367,15 +367,6 @@ app.post('/api/generate-content', async (req, res) => {
     // Always return success with content, even if Google failed
     res.json({
       success: true,
-      content: content,
-      docUrl: docResult.docUrl,
-      docId: docResult.docId,
-      googleErrors: googleErrors.length > 0 ? googleErrors : undefined,
-      warning: googleErrors.length > 0 ? 'Content generated but Google integration had issues' : undefined
-    });
-    
-    res.json({
-      success: true,
       title: keyword,
       content: content,
       docUrl: docResult.docUrl,
@@ -383,7 +374,9 @@ app.post('/api/generate-content', async (req, res) => {
       excerpt: content.excerpt,
       metaTitle: content.metaTitle,
       metaDescription: content.metaDescription,
-      focusKeyword: keyword
+      focusKeyword: keyword,
+      googleErrors: googleErrors.length > 0 ? googleErrors : undefined,
+      warning: googleErrors.length > 0 ? 'Content generated but Google integration had issues' : undefined
     });
   } catch (error) {
     console.error('Generate content error:', error);
