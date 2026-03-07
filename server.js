@@ -349,10 +349,17 @@ app.post('/api/generate-content', async (req, res) => {
           try {
             const docTitle = `${keyword} | Huntington Beach, CA`;
             docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
-            console.log('Created new Google Doc:', docResult.docUrl);
+            if (!docResult.success) {
+              console.log('GDoc creation returned error:', docResult.error);
+              googleErrors.push('GDoc creation failed: ' + (docResult.error || 'Unknown error'));
+              docResult = { success: false, docUrl: null, docId: null };
+            } else {
+              console.log('Created new Google Doc:', docResult.docUrl);
+            }
           } catch (e) {
             console.log('Failed to create Google Doc:', e.message);
             googleErrors.push('GDoc creation failed: ' + e.message);
+            docResult = { success: false, docUrl: null, docId: null };
           }
         }
         
