@@ -593,7 +593,7 @@ async function generateImagesInBackground(keyword, rowIndex) {
     }
     
     // Update spreadsheet with image URLs
-    if (rowIndex && CONFIG.GITHUB_TOKEN && storedTokens) {
+    if (rowIndex && CONFIG.GITHUB_TOKEN && hasGoogleAuth()) {
       const spreadsheetId = process.env.SPREADSHEET_ID;
       if (spreadsheetId) {
         setGoogleCredentials();
@@ -1634,7 +1634,7 @@ app.post('/api/update-service-page', async (req, res) => {
 
     // Fetch content from Google Doc
     let content = '';
-    if (gdocUrl && storedTokens) {
+    if (gdocUrl && hasGoogleAuth()) {
       console.log('[WP] Fetching content from GDoc:', gdocUrl);
       setGoogleCredentials();
       const docResult = await googleService.getGoogleDocContent(gdocUrl);
@@ -1645,7 +1645,7 @@ app.post('/api/update-service-page', async (req, res) => {
         console.log('[WP] Failed to fetch GDoc content:', docResult.error);
       }
     } else {
-      console.log('[WP] No GDoc URL or tokens available');
+      console.log('[WP] No GDoc URL or Google auth available');
     }
 
     // Extract CURRENT post/page ID from service URL (using existing slug)
@@ -2021,7 +2021,7 @@ app.post('/api/update-service-page', async (req, res) => {
 
     // Update spreadsheet with new URLs
     let spreadsheetUpdated = false;
-    if (rowIndex && storedTokens) {
+    if (rowIndex && hasGoogleAuth()) {
       try {
         setGoogleCredentials();
         const spreadsheetId = process.env.SPREADSHEET_ID;
