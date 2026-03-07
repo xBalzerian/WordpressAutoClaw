@@ -87,8 +87,33 @@ class GoogleOAuthService {
     this.oauth2Client.setCredentials(tokens);
   }
 
+  async authorize() {
+    if (this.serviceAccountAuth) {
+      try {
+        await this.serviceAccountAuth.authorize();
+        console.log('Service Account authorized successfully');
+        return true;
+      } catch (e) {
+        console.error('Service Account authorization failed:', e.message);
+        return false;
+      }
+    }
+    return false;
+  }
+
   async createGoogleDoc(title, content) {
     try {
+      // Authorize first if using Service Account
+      if (this.serviceAccountAuth) {
+        const authorized = await this.authorize();
+        if (!authorized) {
+          return {
+            success: false,
+            error: 'Service Account authorization failed'
+          };
+        }
+      }
+      
       // Create document
       const createResponse = await this.docs.documents.create({
         requestBody: {
@@ -160,6 +185,11 @@ class GoogleOAuthService {
 
   async updateSpreadsheet(spreadsheetId, range, values) {
     try {
+      // Authorize first if using Service Account
+      if (this.serviceAccountAuth) {
+        await this.authorize();
+      }
+      
       const response = await this.sheets.spreadsheets.values.update({
         spreadsheetId: spreadsheetId,
         range: range,
@@ -185,6 +215,17 @@ class GoogleOAuthService {
 
   async updateGoogleDoc(documentId, content) {
     try {
+      // Authorize first if using Service Account
+      if (this.serviceAccountAuth) {
+        const authorized = await this.authorize();
+        if (!authorized) {
+          return {
+            success: false,
+            error: 'Service Account authorization failed'
+          };
+        }
+      }
+      
       // Clear existing content and insert new content
       const doc = await this.docs.documents.get({ documentId });
       const endIndex = doc.data.body.content[doc.data.body.content.length - 1].endIndex || 2;
@@ -240,6 +281,11 @@ class GoogleOAuthService {
 
   async getSpreadsheetData(spreadsheetId, range) {
     try {
+      // Authorize first if using Service Account
+      if (this.serviceAccountAuth) {
+        await this.authorize();
+      }
+      
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: spreadsheetId,
         range: range
