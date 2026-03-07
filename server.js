@@ -281,81 +281,98 @@ app.post('/api/generate-content', async (req, res) => {
   try {
     const { keyword, serviceUrl, rowIndex, spreadsheetId, clusterKeywords, existingContent } = req.body;
     
-    // Check if authenticated
-    if (!storedTokens) {
-      return res.status(401).json({ 
-        error: 'Not authenticated with Google. Please visit /auth/google first.' 
-      });
-    }
-    
-    // Set credentials
-    googleService.setCredentialsFromTokens(storedTokens);
-    
-    // Check if GDoc already exists for this row
-    let existingDocUrl = null;
-    if (rowIndex && spreadsheetId) {
-      try {
-        const sheetData = await googleService.getSpreadsheetData(spreadsheetId, `D${rowIndex}`);
-        if (sheetData && sheetData.values && sheetData.values[0] && sheetData.values[0][0]) {
-          existingDocUrl = sheetData.values[0][0];
-          if (existingDocUrl.includes('docs.google.com')) {
-            console.log('Existing GDoc found:', existingDocUrl);
-          }
-        }
-      } catch (e) {
-        console.log('Could not check existing doc:', e.message);
-      }
-    }
-    
     // Generate optimized content (with existing content if provided)
     const content = generateOptimizedContent(keyword, clusterKeywords, existingContent);
     
-    let docResult;
+    let docResult = { success: false, docUrl: null, docId: null, error: null };
+    let googleErrors = [];
     
-    if (existingDocUrl) {
-      // Update existing doc
-      const docId = existingDocUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
-      if (docId) {
-        docResult = await googleService.updateGoogleDoc(docId, content.fullContent);
-        docResult.docUrl = existingDocUrl;
-        console.log('Updated existing Google Doc:', existingDocUrl);
+    // Try to use Google services if authenticated
+    if (storedTokens) {
+      try {
+        // Set credentials
+        googleService.setCredentialsFromTokens(storedTokens);
+        
+        // Check if GDoc already exists for this row
+        let existingDocUrl = null;
+        if (rowIndex && spreadsheetId) {
+          try {
+            const sheetData = await googleService.getSpreadsheetData(spreadsheetId, `D${rowIndex}`);
+            if (sheetData && sheetData.values && sheetData.values[0] && sheetData.values[0][0]) {
+              existingDocUrl = sheetData.values[0][0];
+              if (existingDocUrl.includes('docs.google.com')) {
+                console.log('Existing GDoc found:', existingDocUrl);
+              }
+            }
+          } catch (e) {
+            console.log('Could not check existing doc:', e.message);
+            googleErrors.push('Spreadsheet check failed: ' + e.message);
+          }
+        }
+        
+        // Try to update or create Google Doc
+        if (existingDocUrl) {
+          const docId = existingDocUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+          if (docId) {
+            try {
+              docResult = await googleService.updateGoogleDoc(docId, content.fullContent);
+              if (docResult.success) {
+                docResult.docUrl = existingDocUrl;
+                console.log('Updated existing Google Doc:', existingDocUrl);
+              }
+            } catch (e) {
+              console.log('Failed to update existing doc:', e.message);
+              googleErrors.push('GDoc update failed: ' + e.message);
+            }
+          }
+        }
+        
+        if (!docResult.success) {
+          try {
+            const docTitle = `${keyword} | Huntington Beach, CA`;
+            docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
+            console.log('Created new Google Doc:', docResult.docUrl);
+          } catch (e) {
+            console.log('Failed to create Google Doc:', e.message);
+            googleErrors.push('GDoc creation failed: ' + e.message);
+          }
+        }
+        
+        // Update spreadsheet with GDoc link (don't fail if this doesn't work)
+        if (docResult.success && spreadsheetId && rowIndex) {
+          try {
+            const gdocsColumn = 'D';
+            const range = `${gdocsColumn}${rowIndex}`;
+            
+            await googleService.updateSpreadsheet(
+              spreadsheetId,
+              range,
+              [[docResult.docUrl]]
+            );
+            console.log('Spreadsheet updated successfully');
+          } catch (e) {
+            console.log('Failed to update spreadsheet:', e.message);
+            googleErrors.push('Spreadsheet update failed: ' + e.message);
+          }
+        }
+      } catch (e) {
+        console.log('Google services error:', e.message);
+        googleErrors.push('Google services failed: ' + e.message);
       }
+    } else {
+      console.log('No Google tokens available - skipping GDoc creation');
+      googleErrors.push('Not authenticated with Google');
     }
     
-    if (!docResult || !docResult.success) {
-      // Create new Google Doc via OAuth
-      const docTitle = `${keyword} | Huntington Beach, CA`;
-      docResult = await googleService.createGoogleDoc(docTitle, content.fullContent);
-    }
-    
-    if (!docResult.success) {
-      return res.status(500).json({ error: 'Failed to create Google Doc: ' + docResult.error });
-    }
-    
-    // Update spreadsheet with GDoc link
-    const actualSpreadsheetId = spreadsheetId || process.env.SPREADSHEET_ID;
-    if (actualSpreadsheetId && rowIndex) {
-      // Find GDocs Link column letter (column D)
-      const gdocsColumn = 'D';
-      const range = `${gdocsColumn}${rowIndex}`;
-      
-      const sheetResult = await googleService.updateSpreadsheet(
-        actualSpreadsheetId,
-        range,
-        [[docResult.docUrl]]
-      );
-      
-      if (!sheetResult.success) {
-        console.error('Failed to update spreadsheet:', sheetResult.error);
-        return res.status(500).json({ 
-          error: 'Doc created but spreadsheet update failed: ' + sheetResult.error,
-          docUrl: docResult.docUrl,
-          docId: docResult.docId
-        });
-      } else {
-        console.log('Spreadsheet updated successfully:', sheetResult.updatedRange);
-      }
-    }
+    // Always return success with content, even if Google failed
+    res.json({
+      success: true,
+      content: content,
+      docUrl: docResult.docUrl,
+      docId: docResult.docId,
+      googleErrors: googleErrors.length > 0 ? googleErrors : undefined,
+      warning: googleErrors.length > 0 ? 'Content generated but Google integration had issues' : undefined
+    });
     
     res.json({
       success: true,
